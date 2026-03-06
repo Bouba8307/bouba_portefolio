@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef as ReactRef } from "react";
-import { db, storage } from "../services/firebase";
+import React, { useState, useEffect } from "react";
+import { db } from "../services/firebase";
 import {
   collection,
   addDoc,
@@ -7,8 +7,9 @@ import {
   deleteDoc,
   doc,
   getDocs,
+  query,
+  where,
 } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import {
   Project,
   ContentWork,
@@ -24,6 +25,7 @@ import {
   SKILLS,
 } from "../constants";
 import { Section, Button } from "./UI";
+import { getDirectImageUrl } from "../utils";
 import {
   Plus,
   Trash2,
@@ -33,21 +35,18 @@ import {
   X,
   Database,
   AlertCircle,
-  Upload,
-  Image as ImageIcon,
 } from "lucide-react";
 
 export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
-  const [activeTab, setActiveTab] = useState<"projects" | "content">(
-    "projects",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "projects" | "content" | "messages"
+  >("projects");
   const [projects, setProjects] = useState<Project[]>([]);
   const [contentWorks, setContentWorks] = useState<ContentWork[]>([]);
+  const [messages, setMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingItem, setEditingItem] = useState<any>(null);
-  const [uploading, setUploading] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const fileInputRef = ReactRef<HTMLInputElement>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>("");
 
   const fetchAll = async () => {
     setLoading(true);
@@ -60,6 +59,16 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
       const cSnap = await getDocs(collection(db, "content_works"));
       setContentWorks(
         cSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as ContentWork),
+      );
+
+      const mSnap = await getDocs(collection(db, "messages"));
+      setMessages(
+        mSnap.docs
+          .map((d) => ({ id: d.id, ...d.data() }) as any)
+          .sort(
+            (a, b) =>
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+          ),
       );
     } catch (e) {
       console.error(e);
@@ -89,6 +98,24 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
       for (const col of collections) {
         for (const item of col.data) {
           const { id, ...data } = item as any;
+
+          // Check for duplicates based on title (or name for skills)
+          const fieldToMatch = col.name === "skills" ? "title" : "title"; // Most have title
+          const valueToMatch = data.title || data.name || data.institution;
+
+          if (valueToMatch) {
+            const q = query(
+              collection(db, col.name),
+              where(
+                data.title ? "title" : data.name ? "name" : "institution",
+                "==",
+                valueToMatch,
+              ),
+            );
+            const existing = await getDocs(q);
+            if (!existing.empty) continue; // Skip if already exists
+          }
+
           await addDoc(collection(db, col.name), data);
         }
       }
@@ -121,7 +148,7 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setUploading(true);
+    setLoading(true);
     const formData = new FormData(e.target as HTMLFormElement);
     const data: any = Object.fromEntries(formData.entries());
 
@@ -131,23 +158,6 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
     }
 
     try {
-      let finalImageUrl = data.imageUrl || editingItem?.imageUrl;
-
-      // Handle Image Upload
-      if (selectedFile) {
-        const storageRef = ref(
-          storage,
-          `${activeTab}/${Date.now()}_${selectedFile.name}`,
-        );
-        const snapshot = await uploadBytes(storageRef, selectedFile);
-        finalImageUrl = await getDownloadURL(snapshot.ref);
-      }
-
-      const payload = {
-        ...data,
-        imageUrl: finalImageUrl,
-      };
-
       if (editingItem?.id) {
         await updateDoc(
           doc(
@@ -155,7 +165,7 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
             activeTab === "projects" ? "projects" : "content_works",
             editingItem.id,
           ),
-          payload,
+          data,
         );
       } else {
         await addDoc(
@@ -163,19 +173,18 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
             db,
             activeTab === "projects" ? "projects" : "content_works",
           ),
-          payload,
+          data,
         );
       }
 
       setEditingItem(null);
-      setSelectedFile(null);
       fetchAll();
       alert("Sauvegardé avec succès !");
     } catch (e) {
       console.error(e);
       alert("Erreur lors de la sauvegarde");
     } finally {
-      setUploading(false);
+      setLoading(false);
     }
   };
 
@@ -235,6 +244,17 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
           >
             CRÉATIONS
           </button>
+          <button
+            onClick={() => setActiveTab("messages")}
+            className={`px-6 py-2 rounded-full font-mono text-sm transition-all ${activeTab === "messages" ? "bg-brand-orange text-white" : "bg-white/5 text-white/60 hover:bg-white/10"}`}
+          >
+            MESSAGES{" "}
+            {messages.filter((m) => !m.read).length > 0 && (
+              <span className="ml-2 bg-white text-brand-orange px-2 py-0.5 rounded-full text-[10px]">
+                {messages.filter((m) => !m.read).length}
+              </span>
+            )}
+          </button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -243,14 +263,21 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
               <h2 className="text-xl font-display">
                 {activeTab === "projects"
                   ? "Liste des Projets"
-                  : "Liste des Créations"}
+                  : activeTab === "content"
+                    ? "Liste des Créations"
+                    : "Messages Reçus"}
               </h2>
-              <Button
-                onClick={() => setEditingItem({})}
-                className="p-2 rounded-full"
-              >
-                <Plus size={20} />
-              </Button>
+              {activeTab !== "messages" && (
+                <Button
+                  onClick={() => {
+                    setEditingItem({});
+                    setPreviewUrl("");
+                  }}
+                  className="p-2 rounded-full"
+                >
+                  <Plus size={20} />
+                </Button>
+              )}
             </div>
 
             {loading ? (
@@ -258,6 +285,62 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                 {[1, 2, 3].map((i) => (
                   <div key={i} className="h-20 bg-white/5 rounded-xl" />
                 ))}
+              </div>
+            ) : activeTab === "messages" ? (
+              <div className="space-y-4">
+                {messages.length === 0 ? (
+                  <p className="text-white/40 text-center py-12 glass rounded-2xl">
+                    Aucun message reçu pour le moment.
+                  </p>
+                ) : (
+                  messages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`glass p-6 rounded-xl border ${msg.read ? "border-white/5" : "border-brand-orange/30"} transition-all`}
+                    >
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <h3 className="font-medium text-lg">{msg.name}</h3>
+                          <p className="text-sm text-brand-orange">
+                            {msg.email}
+                          </p>
+                          <p className="text-[10px] text-white/40 uppercase font-mono mt-1">
+                            {new Date(msg.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          {!msg.read && (
+                            <button
+                              onClick={async () => {
+                                await updateDoc(doc(db, "messages", msg.id), {
+                                  read: true,
+                                });
+                                fetchAll();
+                              }}
+                              className="text-[10px] uppercase font-mono bg-brand-orange/20 text-brand-orange px-2 py-1 rounded hover:bg-brand-orange/30 transition-colors"
+                            >
+                              Marquer comme lu
+                            </button>
+                          )}
+                          <button
+                            onClick={async () => {
+                              if (window.confirm("Supprimer ce message ?")) {
+                                await deleteDoc(doc(db, "messages", msg.id));
+                                fetchAll();
+                              }
+                            }}
+                            className="p-2 hover:text-red-500 transition-colors"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      </div>
+                      <p className="text-white/80 text-sm leading-relaxed whitespace-pre-wrap bg-white/5 p-4 rounded-lg">
+                        {msg.message}
+                      </p>
+                    </div>
+                  ))
+                )}
               </div>
             ) : (
               <div className="space-y-4">
@@ -273,7 +356,10 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                       </div>
                       <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
-                          onClick={() => setEditingItem(item)}
+                          onClick={() => {
+                            setEditingItem(item);
+                            setPreviewUrl(item.imageUrl || "");
+                          }}
                           className="p-2 hover:text-brand-orange transition-colors"
                         >
                           <Edit2 size={18} />
@@ -307,7 +393,10 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                     {editingItem.id ? "Modifier" : "Ajouter"}
                   </h2>
                   <button
-                    onClick={() => setEditingItem(null)}
+                    onClick={() => {
+                      setEditingItem(null);
+                      setPreviewUrl("");
+                    }}
                     className="text-white/40 hover:text-white"
                   >
                     <X size={20} />
@@ -339,65 +428,32 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                   </div>
                   <div>
                     <label className="block text-xs font-mono text-white/40 uppercase mb-1">
-                      Image
+                      Image URL
                     </label>
                     <div className="space-y-3">
-                      {/* Preview */}
-                      {(selectedFile || editingItem.imageUrl) && (
+                      <input
+                        name="imageUrl"
+                        defaultValue={editingItem.imageUrl}
+                        required
+                        onChange={(e) => setPreviewUrl(e.target.value)}
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors"
+                      />
+                      {(previewUrl || editingItem.imageUrl) && (
                         <div className="relative aspect-video rounded-lg overflow-hidden border border-white/10 bg-white/5">
                           <img
-                            src={
-                              selectedFile
-                                ? URL.createObjectURL(selectedFile)
-                                : editingItem.imageUrl
-                            }
+                            src={getDirectImageUrl(
+                              previewUrl || editingItem.imageUrl,
+                            )}
                             className="w-full h-full object-cover"
                             alt="Preview"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedFile(null);
-                              if (fileInputRef.current)
-                                fileInputRef.current.value = "";
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src =
+                                "https://picsum.photos/seed/error/1200/1600";
                             }}
-                            className="absolute top-2 right-2 p-1 bg-black/60 rounded-full hover:bg-black transition-colors"
-                          >
-                            <X size={14} />
-                          </button>
+                            referrerPolicy="no-referrer"
+                          />
                         </div>
                       )}
-
-                      <div
-                        onClick={() => fileInputRef.current?.click()}
-                        className="border-2 border-dashed border-white/10 rounded-xl p-4 flex flex-col items-center justify-center gap-2 hover:border-brand-orange/40 hover:bg-white/5 cursor-pointer transition-all"
-                      >
-                        <Upload size={20} className="text-white/40" />
-                        <span className="text-xs text-white/60">
-                          Cliquez pour uploader une image
-                        </span>
-                        <input
-                          type="file"
-                          ref={fileInputRef}
-                          className="hidden"
-                          accept="image/*"
-                          onChange={(e) =>
-                            setSelectedFile(e.target.files?.[0] || null)
-                          }
-                        />
-                      </div>
-
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <ImageIcon size={14} className="text-white/20" />
-                        </div>
-                        <input
-                          name="imageUrl"
-                          placeholder="Ou entrez une URL directe..."
-                          defaultValue={editingItem.imageUrl}
-                          className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-xs focus:border-brand-orange outline-none transition-colors"
-                        />
-                      </div>
                     </div>
                   </div>
                   <div>
@@ -448,10 +504,10 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
 
                   <Button
                     type="submit"
-                    disabled={uploading}
+                    disabled={loading}
                     className="w-full flex items-center justify-center gap-2"
                   >
-                    {uploading ? (
+                    {loading ? (
                       <>
                         <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
                         Traitement...

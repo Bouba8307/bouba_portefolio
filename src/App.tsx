@@ -21,11 +21,12 @@ import {
 import { PROJECTS, EDUCATION, SKILLS, EXPERIENCES, CONTENT_WORKS } from './constants';
 import { Section, Button, Badge } from './components/UI';
 import { ProjectCard, TimelineItem, ExperienceItem, ContentCard } from './components/Cards';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, addDoc } from 'firebase/firestore';
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { db, auth } from './services/firebase';
 import { Project, ContentWork, Experience, Education, SkillGroup } from './types';
 import { AdminDashboard } from './components/Admin';
+import { getDirectImageUrl } from './utils';
 
 const Login = ({ onLogin }: { onLogin: (email: string, pass: string) => void }) => {
   const [email, setEmail] = useState('');
@@ -319,9 +320,12 @@ const Hero = () => {
             {/* Photo Container */}
             <div className="absolute inset-8 rounded-full overflow-hidden border-4 border-white/10 shadow-2xl shadow-brand-orange/20">
               <img 
-                src="https://picsum.photos/seed/professional-dev/800/800" 
+                src={getDirectImageUrl("https://picsum.photos/seed/professional-dev/1200/1200")} 
                 alt="Boubacar Traoré" 
-                className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-700"
+                className="w-full h-full object-cover transition-all duration-700 hover:scale-110"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/profile/1200/1200';
+                }}
                 referrerPolicy="no-referrer"
               />
             </div>
@@ -439,7 +443,7 @@ const About = () => {
   );
 };
 
-const FloatingSkill = ({ skill, index }: { skill: { name: string; icon?: string }, index: number, key?: string | number }) => {
+const FloatingSkill: React.FC<{ skill: { name: string; icon?: string }, index: number }> = ({ skill, index }) => {
   // Generate random stable offsets for each skill
   const offsets = useRef({
     x: Math.random() * 60 - 30,
@@ -490,9 +494,12 @@ const FloatingSkill = ({ skill, index }: { skill: { name: string; icon?: string 
       <div className="w-20 h-20 md:w-24 md:h-24 rounded-full glass flex items-center justify-center p-5 cursor-pointer hover:border-brand-orange/60 transition-all duration-500 shadow-xl shadow-black/40 group-hover:shadow-brand-orange/20 group-hover:bg-white/10">
         {skill.icon ? (
           <img 
-            src={skill.icon} 
+            src={getDirectImageUrl(skill.icon)} 
             alt={skill.name} 
-            className="w-full h-full object-contain grayscale group-hover:grayscale-0 transition-all duration-500 group-hover:drop-shadow-[0_0_8px_rgba(242,125,38,0.5)]" 
+            className="w-full h-full object-contain transition-all duration-500 group-hover:drop-shadow-[0_0_8px_rgba(242,125,38,0.5)]" 
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = 'none';
+            }}
             referrerPolicy="no-referrer" 
           />
         ) : (
@@ -539,6 +546,30 @@ const SkillsData = ({ skillsData }: { skillsData: SkillGroup[] }) => {
 };
 
 const Contact = () => {
+  const [formData, setFormData] = useState({ name: '', email: '', message: '' });
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await addDoc(collection(db, 'messages'), {
+        ...formData,
+        createdAt: new Date().toISOString(),
+        read: false
+      });
+      setSuccess(true);
+      setFormData({ name: '', email: '', message: '' });
+      setTimeout(() => setSuccess(false), 5000);
+    } catch (error) {
+      console.error("Error sending message:", error);
+      alert("Erreur lors de l'envoi du message. Veuillez réessayer.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Section id="contact" subtitle="Contact" title="Travaillons ensemble.">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
@@ -549,7 +580,7 @@ const Contact = () => {
           </p>
 
           <div className="space-y-6">
-            <a href="mailto:contact@example.com" className="group flex items-center gap-6 p-6 rounded-2xl glass hover:bg-white/10 transition-all duration-300">
+            <a href="mailto:boubacartraore8307@gmail.com" className="group flex items-center gap-6 p-6 rounded-2xl glass hover:bg-white/10 transition-all duration-300">
               <div className="w-12 h-12 rounded-full bg-brand-orange/20 flex items-center justify-center text-brand-orange group-hover:scale-110 transition-transform">
                 <Mail size={24} />
               </div>
@@ -579,22 +610,50 @@ const Contact = () => {
         </div>
 
         <div className="glass p-8 md:p-12 rounded-3xl">
-          <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
+          <form className="space-y-6" onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label className="text-xs uppercase font-mono tracking-widest text-white/40 ml-1">Nom</label>
-                <input type="text" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 focus:outline-none focus:border-brand-orange transition-colors" placeholder="exemple" />
+                <input 
+                  type="text" 
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 focus:outline-none focus:border-brand-orange transition-colors" 
+                  placeholder="Votre nom" 
+                />
               </div>
               <div className="space-y-2">
                 <label className="text-xs uppercase font-mono tracking-widest text-white/40 ml-1">Email</label>
-                <input type="email" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 focus:outline-none focus:border-brand-orange transition-colors" placeholder="exemple@example.com" />
+                <input 
+                  type="email" 
+                  required
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 focus:outline-none focus:border-brand-orange transition-colors" 
+                  placeholder="exemple@example.com" 
+                />
               </div>
             </div>
             <div className="space-y-2">
               <label className="text-xs uppercase font-mono tracking-widest text-white/40 ml-1">Message</label>
-              <textarea rows={4} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 focus:outline-none focus:border-brand-orange transition-colors resize-none" placeholder="Votre message..." />
+              <textarea 
+                rows={4} 
+                required
+                value={formData.message}
+                onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 focus:outline-none focus:border-brand-orange transition-colors resize-none" 
+                placeholder="Votre message..." 
+              />
             </div>
-            <Button className="w-full py-5">Envoyer le message</Button>
+            <Button type="submit" className="w-full py-5" disabled={loading}>
+              {loading ? 'Envoi en cours...' : success ? 'Message envoyé !' : 'Envoyer le message'}
+            </Button>
+            {success && (
+              <p className="text-center text-brand-orange text-sm font-medium animate-bounce">
+                Merci ! Votre message a été envoyé avec succès.
+              </p>
+            )}
           </form>
         </div>
       </div>

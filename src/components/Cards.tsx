@@ -1,9 +1,11 @@
+import React from 'react';
 import { motion } from 'motion/react';
 import { ExternalLink, ArrowRight } from 'lucide-react';
 import { Project, Education, Experience, ContentWork } from '../types';
 import { Badge } from './UI';
+import { getDirectImageUrl } from '../utils';
 
-export const ContentCard = ({ work, index }: { work: ContentWork, index: number, key?: string | number }) => {
+export const ContentCard: React.FC<{ work: ContentWork, index: number }> = ({ work, index }) => {
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.9 }}
@@ -14,9 +16,12 @@ export const ContentCard = ({ work, index }: { work: ContentWork, index: number,
       className="group relative glass rounded-2xl overflow-hidden aspect-[3/4] cursor-pointer"
     >
       <img
-        src={work.imageUrl}
+        src={getDirectImageUrl(work.imageUrl) || 'https://picsum.photos/seed/placeholder/1200/1600'}
         alt={work.title}
-        className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700"
+        className="w-full h-full object-cover transition-all duration-700 group-hover:scale-110"
+        onError={(e) => {
+          (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/error/1200/1600';
+        }}
         referrerPolicy="no-referrer"
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex flex-col justify-end p-6">
@@ -33,7 +38,7 @@ export const ContentCard = ({ work, index }: { work: ContentWork, index: number,
   );
 };
 
-export const ProjectCard = ({ project, index }: { project: Project, index: number, key?: string | number }) => {
+export const ProjectCard: React.FC<{ project: Project, index: number }> = ({ project, index }) => {
   return (
     <motion.div
       initial={{ opacity: 0, y: 50 }}
@@ -91,9 +96,12 @@ export const ProjectCard = ({ project, index }: { project: Project, index: numbe
           className="w-full h-full"
         >
           <img
-            src={project.imageUrl}
+            src={getDirectImageUrl(project.imageUrl) || 'https://picsum.photos/seed/placeholder/1600/1200'}
             alt={project.title}
-            className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700"
+            className="w-full h-full object-cover transition-all duration-700 group-hover:scale-105"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/error/1600/1200';
+            }}
             referrerPolicy="no-referrer"
           />
           <div className="absolute inset-0 bg-black/40 group-hover:bg-black/0 transition-colors duration-700" />
@@ -103,7 +111,7 @@ export const ProjectCard = ({ project, index }: { project: Project, index: numbe
   );
 };
 
-export const TimelineItem = ({ education, index }: { education: Education, index: number, key?: string | number }) => {
+export const TimelineItem: React.FC<{ education: Education, index: number }> = ({ education, index }) => {
   return (
     <motion.div
       initial={{ opacity: 0, x: -30 }}
@@ -148,7 +156,7 @@ export const TimelineItem = ({ education, index }: { education: Education, index
   );
 };
 
-export const ExperienceItem = ({ experience, index, key }: { experience: Experience, index: number, key?: string | number }) => {
+export const ExperienceItem: React.FC<{ experience: Experience, index: number }> = ({ experience, index }) => {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
