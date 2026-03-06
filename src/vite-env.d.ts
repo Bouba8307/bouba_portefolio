@@ -1,14 +1,14 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  readonly VITE_FIREBASE_API_KEY: "AIzaSyA3ZnRGoxZUEWSLMMX0IYaeqfifxWsv7Tk"
-  readonly VITE_FIREBASE_AUTH_DOMAIN: "portfolio-f1460.firebaseapp.com",
-  readonly VITE_FIREBASE_PROJECT_ID: "portfolio-f1460",
-  readonly VITE_FIREBASE_STORAGE_BUCKET: "portfolio-f1460.firebasestorage.app",
-  readonly VITE_FIREBASE_MESSAGING_SENDER_ID: "234686191803",
-  readonly VITE_FIREBASE_APP_ID: "1:234686191803:web:bc8b6f21c6ee3eb46cf19e"
+  readonly VITE_FIREBASE_API_KEY: env.VITE_FIREBASE_API_KEY;
+  readonly VITE_FIREBASE_AUTH_DOMAIN: env.VITE_FIREBASE_AUTH_DOMAIN;
+  readonly VITE_FIREBASE_PROJECT_ID: env.VITE_FIREBASE_PROJECT_ID;
+  readonly VITE_FIREBASE_STORAGE_BUCKET: env.VITE_FIREBASE_STORAGE_BUCKET;
+  readonly VITE_FIREBASE_MESSAGING_SENDER_ID: env.VITE_FIREBASE_MESSAGING_SENDER_ID;
+  readonly VITE_FIREBASE_APP_ID: env.VITE_FIREBASE_APP_ID;
 }
 
 interface ImportMeta {
-  readonly env: ImportMetaEnv
+  readonly env: ImportMetaEnv;
 }
