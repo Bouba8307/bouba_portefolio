@@ -24,7 +24,7 @@ import { ProjectCard, TimelineItem, ExperienceItem, ContentCard } from './compon
 import { collection, getDocs } from 'firebase/firestore';
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { db, auth } from './services/firebase';
-import { Project, ContentWork } from './types';
+import { Project, ContentWork, Experience, Education, SkillGroup } from './types';
 import { AdminDashboard } from './components/Admin';
 
 const Login = ({ onLogin }: { onLogin: (email: string, pass: string) => void }) => {
@@ -84,6 +84,9 @@ const Login = ({ onLogin }: { onLogin: (email: string, pass: string) => void }) 
 const Portfolio = () => {
   const [projects, setProjects] = useState<Project[]>(PROJECTS);
   const [contentWorks, setContentWorks] = useState<ContentWork[]>(CONTENT_WORKS);
+  const [experiences, setExperiences] = useState<Experience[]>(EXPERIENCES);
+  const [education, setEducation] = useState<Education[]>(EDUCATION);
+  const [skills, setSkills] = useState<SkillGroup[]>(SKILLS);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -92,15 +95,31 @@ const Portfolio = () => {
         // Fetch Projects
         const projectsSnapshot = await getDocs(collection(db, 'projects'));
         if (!projectsSnapshot.empty) {
-          const projectsData = projectsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project));
-          setProjects(projectsData);
+          setProjects(projectsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project)));
         }
 
         // Fetch Content Works
         const contentSnapshot = await getDocs(collection(db, 'content_works'));
         if (!contentSnapshot.empty) {
-          const contentData = contentSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ContentWork));
-          setContentWorks(contentData);
+          setContentWorks(contentSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ContentWork)));
+        }
+
+        // Fetch Experiences
+        const expSnapshot = await getDocs(collection(db, 'experiences'));
+        if (!expSnapshot.empty) {
+          setExperiences(expSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Experience)));
+        }
+
+        // Fetch Education
+        const eduSnapshot = await getDocs(collection(db, 'education'));
+        if (!eduSnapshot.empty) {
+          setEducation(eduSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Education)));
+        }
+
+        // Fetch Skills
+        const skillsSnapshot = await getDocs(collection(db, 'skills'));
+        if (!skillsSnapshot.empty) {
+          setSkills(skillsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)));
         }
       } catch (error) {
         console.error("Error fetching from Firebase:", error);
@@ -150,7 +169,7 @@ const Portfolio = () => {
 
         <Section id="expériences" subtitle="Expériences" title="Acquis de l'Expérience.">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {EXPERIENCES.map((exp, i) => (
+            {experiences.map((exp, i) => (
               <ExperienceItem key={exp.id} experience={exp} index={i} />
             ))}
           </div>
@@ -160,13 +179,13 @@ const Portfolio = () => {
 
         <Section id="formation" subtitle="Parcours" title="Acquis de Formation.">
           <div className="max-w-4xl">
-            {EDUCATION.map((edu, i) => (
+            {education.map((edu, i) => (
               <TimelineItem key={edu.id} education={edu} index={i} />
             ))}
           </div>
         </Section>
 
-        <Skills />
+        <SkillsData skillsData={skills} />
 
         <Contact />
       </main>
@@ -491,11 +510,11 @@ const FloatingSkill = ({ skill, index }: { skill: { name: string; icon?: string 
   );
 };
 
-const Skills = () => {
+const SkillsData = ({ skillsData }: { skillsData: SkillGroup[] }) => {
   return (
     <Section id="compétences" subtitle="Expertise" title="Compétences & Technologies.">
       <div className="space-y-24">
-        {SKILLS.map((group, i) => (
+        {skillsData.map((group, i) => (
           <div key={group.title} className="space-y-12">
             <div className="flex items-center gap-6">
               <div className="w-12 h-12 rounded-full bg-brand-orange/20 flex items-center justify-center text-brand-orange">
