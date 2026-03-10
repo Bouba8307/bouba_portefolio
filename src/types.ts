@@ -9,6 +9,14 @@ export interface Project {
   results: string;
   imageUrl: string;
   link?: string;
+  githubUrl?: string;
+  figmaUrl?: string;
+}
+
+export interface Settings {
+  name: string;
+  profileImageUrl: string;
+  bio?: string;
 }
 
 export interface Education {

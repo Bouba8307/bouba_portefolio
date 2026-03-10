@@ -1,75 +1,42 @@
-import React, { useState, useEffect } from "react";
-import { db } from "../services/firebase";
-import {
-  collection,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  doc,
-  getDocs,
-  query,
-  where,
-} from "firebase/firestore";
-import {
-  Project,
-  ContentWork,
-  Experience,
-  Education,
-  SkillGroup,
-} from "../types";
-import {
-  PROJECTS,
-  CONTENT_WORKS,
-  EXPERIENCES,
-  EDUCATION,
-  SKILLS,
-} from "../constants";
-import { Section, Button } from "./UI";
-import { getDirectImageUrl } from "../utils";
-import {
-  Plus,
-  Trash2,
-  Edit2,
-  LogOut,
-  Save,
-  X,
-  Database,
-  AlertCircle,
-} from "lucide-react";
+import React, { useState, useEffect } from 'react';
+import { db } from '../services/firebase';
+import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, where } from 'firebase/firestore';
+import { Project, ContentWork, Experience, Education, SkillGroup } from '../types';
+import { PROJECTS, CONTENT_WORKS, EXPERIENCES, EDUCATION, SKILLS } from '../constants';
+import { Section, Button } from './UI';
+import { getDirectImageUrl } from '../utils';
+import { Plus, Trash2, Edit2, LogOut, Save, X, Database, AlertCircle, Upload, Loader2, Link2, User } from 'lucide-react';
+import { uploadFile, isSupabaseConfigured } from '../services/supabase';
 
 export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
-  const [activeTab, setActiveTab] = useState<
-    "projects" | "content" | "messages"
-  >("projects");
+  const [activeTab, setActiveTab] = useState<'projects' | 'content' | 'messages' | 'settings'>('projects');
   const [projects, setProjects] = useState<Project[]>([]);
   const [contentWorks, setContentWorks] = useState<ContentWork[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
+  const [settings, setSettings] = useState<any>({ name: 'BT.', profileImageUrl: '', bio: '' });
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [uploadingProfile, setUploadingProfile] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
-  const [previewUrl, setPreviewUrl] = useState<string>("");
+  const [imageUrl, setImageUrl] = useState<string>('');
+  const [previewUrl, setPreviewUrl] = useState<string>('');
 
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const pSnap = await getDocs(collection(db, "projects"));
-      setProjects(
-        pSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Project),
-      );
+      const pSnap = await getDocs(collection(db, 'projects'));
+      setProjects(pSnap.docs.map(d => ({ id: d.id, ...d.data() } as Project)));
+      
+      const cSnap = await getDocs(collection(db, 'content_works'));
+      setContentWorks(cSnap.docs.map(d => ({ id: d.id, ...d.data() } as ContentWork)));
 
-      const cSnap = await getDocs(collection(db, "content_works"));
-      setContentWorks(
-        cSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as ContentWork),
-      );
+      const mSnap = await getDocs(collection(db, 'messages'));
+      setMessages(mSnap.docs.map(d => ({ id: d.id, ...d.data() } as any)).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
 
-      const mSnap = await getDocs(collection(db, "messages"));
-      setMessages(
-        mSnap.docs
-          .map((d) => ({ id: d.id, ...d.data() }) as any)
-          .sort(
-            (a, b) =>
-              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-          ),
-      );
+      const sSnap = await getDocs(collection(db, 'settings'));
+      if (!sSnap.empty) {
+        setSettings({ id: sSnap.docs[0].id, ...sSnap.docs[0].data() });
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -78,55 +45,41 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
   };
 
   const seedDatabase = async () => {
-    if (
-      !window.confirm(
-        "Voulez-vous importer TOUTES les données initiales (Projets, Créations, Expériences, Formations, Compétences) dans Firebase ?",
-      )
-    )
-      return;
-
+    if (!window.confirm('Voulez-vous importer TOUTES les données initiales (Projets, Créations, Expériences, Formations, Compétences) dans Firebase ?')) return;
+    
     setLoading(true);
     try {
       const collections = [
-        { name: "projects", data: PROJECTS },
-        { name: "content_works", data: CONTENT_WORKS },
-        { name: "experiences", data: EXPERIENCES },
-        { name: "education", data: EDUCATION },
-        { name: "skills", data: SKILLS },
+        { name: 'projects', data: PROJECTS },
+        { name: 'content_works', data: CONTENT_WORKS },
+        { name: 'experiences', data: EXPERIENCES },
+        { name: 'education', data: EDUCATION },
+        { name: 'skills', data: SKILLS }
       ];
 
       for (const col of collections) {
         for (const item of col.data) {
           const { id, ...data } = item as any;
-
+          
           // Check for duplicates based on title (or name for skills)
-          const fieldToMatch = col.name === "skills" ? "title" : "title"; // Most have title
+          const fieldToMatch = col.name === 'skills' ? 'title' : 'title'; // Most have title
           const valueToMatch = data.title || data.name || data.institution;
-
+          
           if (valueToMatch) {
-            const q = query(
-              collection(db, col.name),
-              where(
-                data.title ? "title" : data.name ? "name" : "institution",
-                "==",
-                valueToMatch,
-              ),
-            );
+            const q = query(collection(db, col.name), where(data.title ? 'title' : (data.name ? 'name' : 'institution'), '==', valueToMatch));
             const existing = await getDocs(q);
             if (!existing.empty) continue; // Skip if already exists
           }
-
+          
           await addDoc(collection(db, col.name), data);
         }
       }
-
-      alert(
-        "Toutes les données fictives ont été enregistrées dans Firebase avec succès !",
-      );
+      
+      alert('Toutes les données fictives ont été enregistrées dans Firebase avec succès !');
       fetchAll();
     } catch (e) {
       console.error(e);
-      alert("Erreur lors de l'importation globale");
+      alert('Erreur lors de l\'importation globale');
     } finally {
       setLoading(false);
     }
@@ -136,13 +89,43 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
     fetchAll();
   }, []);
 
-  const handleDelete = async (
-    id: string,
-    type: "projects" | "content_works",
-  ) => {
-    if (window.confirm("Supprimer cet élément ?")) {
+  const handleDelete = async (id: string, type: 'projects' | 'content_works') => {
+    if (window.confirm('Supprimer cet élément ?')) {
       await deleteDoc(doc(db, type, id));
       fetchAll();
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const publicUrl = await uploadFile(file);
+      setImageUrl(publicUrl);
+      setPreviewUrl(publicUrl);
+      alert('Image téléchargée avec succès sur Supabase !');
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      alert('Erreur lors du téléchargement : ' + error.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleProfileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingProfile(true);
+    try {
+      const url = await uploadFile(file);
+      setSettings({ ...settings, profileImageUrl: url });
+    } catch (e: any) {
+      alert('Erreur lors du téléchargement : ' + e.message);
+    } finally {
+      setUploadingProfile(false);
     }
   };
 
@@ -151,38 +134,32 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
     setLoading(true);
     const formData = new FormData(e.target as HTMLFormElement);
     const data: any = Object.fromEntries(formData.entries());
-
+    
     // Handle stack as array
     if (data.stack) {
-      data.stack = data.stack.split(",").map((s: string) => s.trim());
+      data.stack = data.stack.split(',').map((s: string) => s.trim());
     }
 
     try {
-      if (editingItem?.id) {
-        await updateDoc(
-          doc(
-            db,
-            activeTab === "projects" ? "projects" : "content_works",
-            editingItem.id,
-          ),
-          data,
-        );
+      if (activeTab === 'settings') {
+        if (settings.id) {
+          await updateDoc(doc(db, 'settings', settings.id), data);
+        } else {
+          await addDoc(collection(db, 'settings'), data);
+        }
+        alert('Paramètres mis à jour !');
+      } else if (editingItem?.id) {
+        await updateDoc(doc(db, activeTab === 'projects' ? 'projects' : 'content_works', editingItem.id), data);
       } else {
-        await addDoc(
-          collection(
-            db,
-            activeTab === "projects" ? "projects" : "content_works",
-          ),
-          data,
-        );
+        await addDoc(collection(db, activeTab === 'projects' ? 'projects' : 'content_works'), data);
       }
-
-      setEditingItem(null);
+      
+      if (activeTab !== 'settings') setEditingItem(null);
       fetchAll();
-      alert("Sauvegardé avec succès !");
+      if (activeTab !== 'settings') alert('Sauvegardé avec succès !');
     } catch (e) {
       console.error(e);
-      alert("Erreur lors de la sauvegarde");
+      alert('Erreur lors de la sauvegarde');
     } finally {
       setLoading(false);
     }
@@ -194,11 +171,7 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
         <div className="flex justify-between items-center mb-12">
           <h1 className="text-4xl font-display font-medium">Dashboard Admin</h1>
           <div className="flex items-center gap-4">
-            <Button
-              variant="outline"
-              onClick={seedDatabase}
-              className="flex items-center gap-2 border-brand-orange/20 text-brand-orange hover:bg-brand-orange/10"
-            >
+            <Button variant="outline" onClick={seedDatabase} className="flex items-center gap-2 border-brand-orange/20 text-brand-orange hover:bg-brand-orange/10">
               <Database size={18} /> Migrer Données Fictives
             </Button>
             <Button onClick={onLogout} className="flex items-center gap-2">
@@ -213,47 +186,39 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
               <AlertCircle size={24} />
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-medium mb-1">
-                Base de données vide détectée
-              </h3>
-              <p className="text-white/60 text-sm">
-                Souhaitez-vous importer les données de démonstration pour
-                commencer ?
-              </p>
+              <h3 className="text-lg font-medium mb-1">Base de données vide détectée</h3>
+              <p className="text-white/60 text-sm">Souhaitez-vous importer les données de démonstration pour commencer ?</p>
             </div>
-            <Button
-              onClick={seedDatabase}
-              variant="secondary"
-              className="text-xs py-2"
-            >
+            <Button onClick={seedDatabase} variant="secondary" className="text-xs py-2">
               Importer maintenant
             </Button>
           </div>
         )}
 
-        <div className="flex gap-4 mb-8">
-          <button
-            onClick={() => setActiveTab("projects")}
-            className={`px-6 py-2 rounded-full font-mono text-sm transition-all ${activeTab === "projects" ? "bg-brand-orange text-white" : "bg-white/5 text-white/60 hover:bg-white/10"}`}
+        <div className="flex gap-4 mb-8 overflow-x-auto pb-2 no-scrollbar">
+          <button 
+            onClick={() => setActiveTab('projects')}
+            className={`px-6 py-2 rounded-full font-mono text-sm transition-all whitespace-nowrap ${activeTab === 'projects' ? 'bg-brand-orange text-white' : 'bg-white/5 text-white/60 hover:bg-white/10'}`}
           >
             PROJETS
           </button>
-          <button
-            onClick={() => setActiveTab("content")}
-            className={`px-6 py-2 rounded-full font-mono text-sm transition-all ${activeTab === "content" ? "bg-brand-orange text-white" : "bg-white/5 text-white/60 hover:bg-white/10"}`}
+          <button 
+            onClick={() => setActiveTab('content')}
+            className={`px-6 py-2 rounded-full font-mono text-sm transition-all whitespace-nowrap ${activeTab === 'content' ? 'bg-brand-orange text-white' : 'bg-white/5 text-white/60 hover:bg-white/10'}`}
           >
             CRÉATIONS
           </button>
-          <button
-            onClick={() => setActiveTab("messages")}
-            className={`px-6 py-2 rounded-full font-mono text-sm transition-all ${activeTab === "messages" ? "bg-brand-orange text-white" : "bg-white/5 text-white/60 hover:bg-white/10"}`}
+          <button 
+            onClick={() => setActiveTab('messages')}
+            className={`px-6 py-2 rounded-full font-mono text-sm transition-all whitespace-nowrap ${activeTab === 'messages' ? 'bg-brand-orange text-white' : 'bg-white/5 text-white/60 hover:bg-white/10'}`}
           >
-            MESSAGES{" "}
-            {messages.filter((m) => !m.read).length > 0 && (
-              <span className="ml-2 bg-white text-brand-orange px-2 py-0.5 rounded-full text-[10px]">
-                {messages.filter((m) => !m.read).length}
-              </span>
-            )}
+            MESSAGES {messages.filter(m => !m.read).length > 0 && <span className="ml-2 bg-white text-brand-orange px-2 py-0.5 rounded-full text-[10px]">{messages.filter(m => !m.read).length}</span>}
+          </button>
+          <button 
+            onClick={() => setActiveTab('settings')}
+            className={`px-6 py-2 rounded-full font-mono text-sm transition-all whitespace-nowrap ${activeTab === 'settings' ? 'bg-brand-orange text-white' : 'bg-white/5 text-white/60 hover:bg-white/10'}`}
+          >
+            PARAMÈTRES
           </button>
         </div>
 
@@ -261,20 +226,13 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
           <div className="lg:col-span-2 space-y-4">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-display">
-                {activeTab === "projects"
-                  ? "Liste des Projets"
-                  : activeTab === "content"
-                    ? "Liste des Créations"
-                    : "Messages Reçus"}
+                {activeTab === 'projects' ? 'Liste des Projets' : activeTab === 'content' ? 'Liste des Créations' : 'Messages Reçus'}
               </h2>
-              {activeTab !== "messages" && (
-                <Button
-                  onClick={() => {
-                    setEditingItem({});
-                    setPreviewUrl("");
-                  }}
-                  className="p-2 rounded-full"
-                >
+              {activeTab !== 'messages' && (
+                <Button onClick={() => {
+                  setEditingItem({});
+                  setPreviewUrl('');
+                }} className="p-2 rounded-full">
                   <Plus size={20} />
                 </Button>
               )}
@@ -282,39 +240,87 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
 
             {loading ? (
               <div className="animate-pulse space-y-4">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-20 bg-white/5 rounded-xl" />
-                ))}
+                {[1, 2, 3].map(i => <div key={i} className="h-20 bg-white/5 rounded-xl" />)}
               </div>
-            ) : activeTab === "messages" ? (
+            ) : activeTab === 'settings' ? (
+              <div className="glass p-8 rounded-2xl">
+                <h2 className="text-2xl font-display mb-8">Mon Profil</h2>
+                <form onSubmit={handleSave} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-xs font-mono text-white/40 uppercase mb-2">Nom d'affichage</label>
+                      <input name="name" defaultValue={settings.name} required className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 focus:border-brand-orange outline-none transition-colors" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-mono text-white/40 uppercase mb-2">Photo de profil</label>
+                      <div className="flex items-center gap-4">
+                        <div className="w-16 h-16 rounded-full overflow-hidden border border-white/10 bg-white/5">
+                          {settings.profileImageUrl ? (
+                            <img src={getDirectImageUrl(settings.profileImageUrl)} alt="Preview" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-white/20">
+                              <User size={24} />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 space-y-2">
+                          <div className="flex gap-2">
+                            <input 
+                              type="text" 
+                              value={settings.profileImageUrl}
+                              onChange={(e) => setSettings({ ...settings, profileImageUrl: e.target.value })}
+                              className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm focus:border-brand-orange outline-none transition-colors"
+                              placeholder="URL de l'image"
+                            />
+                            <label className={`cursor-pointer flex items-center justify-center w-10 h-10 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 transition-colors ${!isSupabaseConfigured ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                              <input 
+                                type="file" 
+                                className="hidden" 
+                                accept="image/*" 
+                                onChange={handleProfileUpload}
+                                disabled={!isSupabaseConfigured || uploadingProfile}
+                              />
+                              {uploadingProfile ? <Loader2 size={18} className="animate-spin text-brand-orange" /> : <Upload size={18} />}
+                            </label>
+                          </div>
+                          {!isSupabaseConfigured && (
+                            <p className="text-[10px] text-brand-orange flex items-center gap-1">
+                              <AlertCircle size={10} /> Supabase non configuré pour l'upload
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-mono text-white/40 uppercase mb-2">Bio courte</label>
+                    <textarea name="bio" defaultValue={settings.bio} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 focus:border-brand-orange outline-none transition-colors h-32" />
+                  </div>
+                  <Button type="submit" disabled={loading} className="w-full md:w-auto px-12">
+                    {loading ? 'Enregistrement...' : 'Mettre à jour le profil'}
+                  </Button>
+                </form>
+              </div>
+            ) : activeTab === 'messages' ? (
               <div className="space-y-4">
                 {messages.length === 0 ? (
-                  <p className="text-white/40 text-center py-12 glass rounded-2xl">
-                    Aucun message reçu pour le moment.
-                  </p>
+                  <p className="text-white/40 text-center py-12 glass rounded-2xl">Aucun message reçu pour le moment.</p>
                 ) : (
                   messages.map((msg) => (
-                    <div
-                      key={msg.id}
-                      className={`glass p-6 rounded-xl border ${msg.read ? "border-white/5" : "border-brand-orange/30"} transition-all`}
-                    >
+                    <div key={msg.id} className={`glass p-6 rounded-xl border ${msg.read ? 'border-white/5' : 'border-brand-orange/30'} transition-all`}>
                       <div className="flex justify-between items-start mb-4">
                         <div>
                           <h3 className="font-medium text-lg">{msg.name}</h3>
-                          <p className="text-sm text-brand-orange">
-                            {msg.email}
-                          </p>
+                          <p className="text-sm text-brand-orange">{msg.email}</p>
                           <p className="text-[10px] text-white/40 uppercase font-mono mt-1">
                             {new Date(msg.createdAt).toLocaleString()}
                           </p>
                         </div>
                         <div className="flex gap-2">
                           {!msg.read && (
-                            <button
+                            <button 
                               onClick={async () => {
-                                await updateDoc(doc(db, "messages", msg.id), {
-                                  read: true,
-                                });
+                                await updateDoc(doc(db, 'messages', msg.id), { read: true });
                                 fetchAll();
                               }}
                               className="text-[10px] uppercase font-mono bg-brand-orange/20 text-brand-orange px-2 py-1 rounded hover:bg-brand-orange/30 transition-colors"
@@ -322,10 +328,10 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                               Marquer comme lu
                             </button>
                           )}
-                          <button
+                          <button 
                             onClick={async () => {
-                              if (window.confirm("Supprimer ce message ?")) {
-                                await deleteDoc(doc(db, "messages", msg.id));
+                              if (window.confirm('Supprimer ce message ?')) {
+                                await deleteDoc(doc(db, 'messages', msg.id));
                                 fetchAll();
                               }
                             }}
@@ -344,43 +350,26 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
               </div>
             ) : (
               <div className="space-y-4">
-                {(activeTab === "projects" ? projects : contentWorks).map(
-                  (item: any) => (
-                    <div
-                      key={item.id}
-                      className="glass p-4 rounded-xl flex justify-between items-center group"
-                    >
-                      <div>
-                        <h3 className="font-medium">{item.title}</h3>
-                        <p className="text-sm text-white/40">{item.category}</p>
-                      </div>
-                      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => {
-                            setEditingItem(item);
-                            setPreviewUrl(item.imageUrl || "");
-                          }}
-                          className="p-2 hover:text-brand-orange transition-colors"
-                        >
-                          <Edit2 size={18} />
-                        </button>
-                        <button
-                          onClick={() =>
-                            handleDelete(
-                              item.id,
-                              activeTab === "projects"
-                                ? "projects"
-                                : "content_works",
-                            )
-                          }
-                          className="p-2 hover:text-red-500 transition-colors"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
+                {(activeTab === 'projects' ? projects : contentWorks).map((item: any) => (
+                  <div key={item.id} className="glass p-4 rounded-xl flex justify-between items-center group">
+                    <div>
+                      <h3 className="font-medium">{item.title}</h3>
+                      <p className="text-sm text-white/40">{item.category}</p>
                     </div>
-                  ),
-                )}
+                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => {
+                        setEditingItem(item);
+                        setImageUrl(item.imageUrl || '');
+                        setPreviewUrl(item.imageUrl || '');
+                      }} className="p-2 hover:text-brand-orange transition-colors">
+                        <Edit2 size={18} />
+                      </button>
+                      <button onClick={() => handleDelete(item.id, activeTab === 'projects' ? 'projects' : 'content_works')} className="p-2 hover:text-red-500 transition-colors">
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -389,124 +378,121 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
             {editingItem && (
               <div className="glass p-6 rounded-2xl sticky top-8">
                 <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-display">
-                    {editingItem.id ? "Modifier" : "Ajouter"}
-                  </h2>
-                  <button
-                    onClick={() => {
-                      setEditingItem(null);
-                      setPreviewUrl("");
-                    }}
-                    className="text-white/40 hover:text-white"
-                  >
+                  <h2 className="text-xl font-display">{editingItem.id ? 'Modifier' : 'Ajouter'}</h2>
+                  <button onClick={() => {
+                    setEditingItem(null);
+                    setImageUrl('');
+                    setPreviewUrl('');
+                  }} className="text-white/40 hover:text-white">
                     <X size={20} />
                   </button>
                 </div>
 
                 <form onSubmit={handleSave} className="space-y-4">
                   <div>
-                    <label className="block text-xs font-mono text-white/40 uppercase mb-1">
-                      Titre
-                    </label>
-                    <input
-                      name="title"
-                      defaultValue={editingItem.title}
-                      required
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors"
-                    />
+                    <label className="block text-xs font-mono text-white/40 uppercase mb-1">Titre</label>
+                    <input name="title" defaultValue={editingItem.title} required className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors" />
                   </div>
                   <div>
-                    <label className="block text-xs font-mono text-white/40 uppercase mb-1">
-                      Catégorie
-                    </label>
-                    <input
-                      name="category"
-                      defaultValue={editingItem.category}
-                      required
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors"
-                    />
+                    <label className="block text-xs font-mono text-white/40 uppercase mb-1">Catégorie</label>
+                    <input name="category" defaultValue={editingItem.category} required className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors" />
                   </div>
                   <div>
-                    <label className="block text-xs font-mono text-white/40 uppercase mb-1">
-                      Image URL
-                    </label>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="block text-xs font-mono text-white/40 uppercase">Image (Supabase Storage)</label>
+                      {!isSupabaseConfigured && (
+                        <span className="text-[10px] text-red-500 font-mono animate-pulse flex items-center gap-1">
+                          <AlertCircle size={10} /> Clés manquantes
+                        </span>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center gap-3 mb-3">
+                      <label className={`flex-1 flex items-center justify-center gap-2 bg-white/5 border border-dashed border-white/20 rounded-lg px-4 py-3 transition-colors ${!isSupabaseConfigured ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-white/10'}`}>
+                        {uploading ? (
+                          <Loader2 size={18} className="animate-spin text-brand-orange" />
+                        ) : (
+                          <Upload size={18} className={isSupabaseConfigured ? "text-white/40" : "text-red-500/40"} />
+                        )}
+                        <span className="text-xs text-white/60">
+                          {!isSupabaseConfigured ? 'Supabase non configuré' : uploading ? 'Téléchargement...' : 'Choisir un fichier'}
+                        </span>
+                        <input 
+                          type="file" 
+                          className="hidden" 
+                          accept="image/*" 
+                          onChange={handleFileUpload}
+                          disabled={uploading || !isSupabaseConfigured}
+                        />
+                      </label>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 mb-1">
+                      <Link2 size={12} className="text-white/40" />
+                      <label className="block text-xs font-mono text-white/40 uppercase">Ou URL directe</label>
+                    </div>
                     <div className="space-y-3">
-                      <input
-                        name="imageUrl"
-                        defaultValue={editingItem.imageUrl}
-                        required
-                        onChange={(e) => setPreviewUrl(e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors"
+                      <input 
+                        name="imageUrl" 
+                        value={imageUrl} 
+                        required 
+                        onChange={(e) => {
+                          setImageUrl(e.target.value);
+                          setPreviewUrl(e.target.value);
+                        }}
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors" 
                       />
                       {(previewUrl || editingItem.imageUrl) && (
                         <div className="relative aspect-video rounded-lg overflow-hidden border border-white/10 bg-white/5">
-                          <img
-                            src={getDirectImageUrl(
-                              previewUrl || editingItem.imageUrl,
-                            )}
+                          <img 
+                            src={getDirectImageUrl(previewUrl || editingItem.imageUrl)} 
                             className="w-full h-full object-cover"
                             alt="Preview"
                             onError={(e) => {
-                              (e.target as HTMLImageElement).src =
-                                "https://picsum.photos/seed/error/1200/1600";
+                              (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/error/1200/1600';
                             }}
-                            referrerPolicy="no-referrer"
                           />
                         </div>
                       )}
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-mono text-white/40 uppercase mb-1">
-                      Description
-                    </label>
-                    <textarea
-                      name="description"
-                      defaultValue={editingItem.description}
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors h-24"
-                    />
+                    <label className="block text-xs font-mono text-white/40 uppercase mb-1">Description</label>
+                    <textarea name="description" defaultValue={editingItem.description} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors h-24" />
                   </div>
-
-                  {activeTab === "projects" && (
+                  
+                  {activeTab === 'projects' && (
                     <>
                       <div>
-                        <label className="block text-xs font-mono text-white/40 uppercase mb-1">
-                          Stack (séparé par virgules)
-                        </label>
-                        <input
-                          name="stack"
-                          defaultValue={editingItem.stack?.join(", ")}
-                          className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors"
-                        />
+                        <label className="block text-xs font-mono text-white/40 uppercase mb-1">Stack (séparé par virgules)</label>
+                        <input name="stack" defaultValue={editingItem.stack?.join(', ')} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors" />
+                      </div>
+                      <div className="grid grid-cols-1 gap-4">
+                        <div>
+                          <label className="block text-xs font-mono text-white/40 uppercase mb-1">Lien du projet (Live)</label>
+                          <input name="link" defaultValue={editingItem.link} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors" placeholder="https://..." />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-mono text-white/40 uppercase mb-1">Lien GitHub</label>
+                          <input name="githubUrl" defaultValue={editingItem.githubUrl} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors" placeholder="https://github.com/..." />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-mono text-white/40 uppercase mb-1">Lien Figma</label>
+                          <input name="figmaUrl" defaultValue={editingItem.figmaUrl} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors" placeholder="https://figma.com/..." />
+                        </div>
                       </div>
                       <div>
-                        <label className="block text-xs font-mono text-white/40 uppercase mb-1">
-                          Problème
-                        </label>
-                        <textarea
-                          name="problem"
-                          defaultValue={editingItem.problem}
-                          className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors"
-                        />
+                        <label className="block text-xs font-mono text-white/40 uppercase mb-1">Problème</label>
+                        <textarea name="problem" defaultValue={editingItem.problem} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors" />
                       </div>
                       <div>
-                        <label className="block text-xs font-mono text-white/40 uppercase mb-1">
-                          Solution
-                        </label>
-                        <textarea
-                          name="solution"
-                          defaultValue={editingItem.solution}
-                          className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors"
-                        />
+                        <label className="block text-xs font-mono text-white/40 uppercase mb-1">Solution</label>
+                        <textarea name="solution" defaultValue={editingItem.solution} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors" />
                       </div>
                     </>
                   )}
 
-                  <Button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full flex items-center justify-center gap-2"
-                  >
+                  <Button type="submit" disabled={loading} className="w-full flex items-center justify-center gap-2">
                     {loading ? (
                       <>
                         <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />

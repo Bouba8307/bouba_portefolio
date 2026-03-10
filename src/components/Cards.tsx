@@ -1,11 +1,11 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { ExternalLink, ArrowRight } from 'lucide-react';
+import { ExternalLink, ArrowRight, Github, Figma } from 'lucide-react';
 import { Project, Education, Experience, ContentWork } from '../types';
 import { Badge } from './UI';
 import { getDirectImageUrl } from '../utils';
 
-export const ContentCard: React.FC<{ work: ContentWork, index: number }> = ({ work, index }) => {
+export const ContentCard: React.FC<{ work: ContentWork, index: number, onClick?: () => void }> = ({ work, index, onClick }) => {
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.9 }}
@@ -13,17 +13,17 @@ export const ContentCard: React.FC<{ work: ContentWork, index: number }> = ({ wo
       viewport={{ once: true }}
       transition={{ delay: index * 0.1, duration: 0.5 }}
       whileHover={{ y: -10 }}
+      onClick={onClick}
       className="group relative glass rounded-2xl overflow-hidden aspect-[3/4] cursor-pointer"
     >
-      <img
-        src={getDirectImageUrl(work.imageUrl) || 'https://picsum.photos/seed/placeholder/1200/1600'}
-        alt={work.title}
-        className="w-full h-full object-cover transition-all duration-700 group-hover:scale-110"
-        onError={(e) => {
-          (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/error/1200/1600';
-        }}
-        referrerPolicy="no-referrer"
-      />
+        <img
+          src={getDirectImageUrl(work.imageUrl) || 'https://picsum.photos/seed/placeholder/1200/1600'}
+          alt={work.title}
+          className="w-full h-full object-cover transition-all duration-700 group-hover:scale-110"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/error/1200/1600';
+          }}
+        />
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex flex-col justify-end p-6">
         <span className="text-brand-orange font-mono text-[10px] uppercase tracking-widest mb-2">{work.category}</span>
         <h3 className="text-xl font-display font-medium text-white mb-2">{work.title}</h3>
@@ -38,14 +38,14 @@ export const ContentCard: React.FC<{ work: ContentWork, index: number }> = ({ wo
   );
 };
 
-export const ProjectCard: React.FC<{ project: Project, index: number }> = ({ project, index }) => {
+export const ProjectCard: React.FC<{ project: Project, index: number, onClick?: () => void }> = ({ project, index, onClick }) => {
   return (
     <motion.div
       initial={{ opacity: 0, y: 50 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ delay: index * 0.1, duration: 0.8 }}
-      className="group relative grid grid-cols-1 lg:grid-cols-2 gap-12 items-center mb-32 last:mb-0"
+      className="group relative grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center mb-16 lg:mb-32 last:mb-0"
     >
       <div className={`order-2 ${index % 2 === 0 ? 'lg:order-1' : 'lg:order-2'}`}>
         <div className="flex flex-col gap-6">
@@ -77,19 +77,65 @@ export const ProjectCard: React.FC<{ project: Project, index: number }> = ({ pro
             ))}
           </div>
 
-          <motion.button
-            whileHover={{ x: 10 }}
-            className="flex items-center gap-3 text-white font-medium group/btn mt-4"
-          >
-            <span>Voir le projet</span>
-            <div className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center group-hover/btn:bg-brand-orange group-hover/btn:border-brand-orange transition-all duration-300">
-              <ArrowRight size={18} />
+          <div className="flex items-center gap-6 mt-4">
+            {project.link ? (
+              <motion.a
+                whileHover={{ x: 10 }}
+                href={project.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 text-white font-medium group/btn"
+              >
+                <span>Voir le projet</span>
+                <div className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center group-hover/btn:bg-brand-orange group-hover/btn:border-brand-orange transition-all duration-300">
+                  <ArrowRight size={18} />
+                </div>
+              </motion.a>
+            ) : (
+              <motion.button
+                whileHover={{ x: 10 }}
+                onClick={onClick}
+                className="flex items-center gap-3 text-white font-medium group/btn"
+              >
+                <span>Détails</span>
+                <div className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center group-hover/btn:bg-brand-orange group-hover/btn:border-brand-orange transition-all duration-300">
+                  <ArrowRight size={18} />
+                </div>
+              </motion.button>
+            )}
+
+            <div className="flex items-center gap-4">
+              {project.githubUrl && (
+                <a 
+                  href={project.githubUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:border-white/30 transition-all"
+                  title="GitHub"
+                >
+                  <Github size={18} />
+                </a>
+              )}
+              {project.figmaUrl && (
+                <a 
+                  href={project.figmaUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:border-white/30 transition-all"
+                  title="Figma"
+                >
+                  <Figma size={18} />
+                </a>
+              )}
             </div>
-          </motion.button>
+          </div>
         </div>
       </div>
 
-      <div className={`order-1 ${index % 2 === 0 ? 'lg:order-2' : 'lg:order-1'} relative overflow-hidden rounded-2xl aspect-[4/3] lg:aspect-square`}>
+      <div 
+        onClick={onClick}
+        className={`order-1 ${index % 2 === 0 ? 'lg:order-2' : 'lg:order-1'} relative overflow-hidden rounded-2xl aspect-[4/3] lg:aspect-square cursor-pointer`}
+      >
         <motion.div
           whileHover={{ scale: 1.05 }}
           transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
@@ -102,7 +148,6 @@ export const ProjectCard: React.FC<{ project: Project, index: number }> = ({ pro
             onError={(e) => {
               (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/error/1600/1200';
             }}
-            referrerPolicy="no-referrer"
           />
           <div className="absolute inset-0 bg-black/40 group-hover:bg-black/0 transition-colors duration-700" />
         </motion.div>
@@ -125,13 +170,13 @@ export const TimelineItem: React.FC<{ education: Education, index: number }> = (
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <span className="text-brand-orange font-mono text-xs uppercase tracking-widest mb-1 block">{education.period}</span>
-            <h3 className="text-2xl font-display font-medium">{education.title}</h3>
-            <p className="text-white/60">{education.institution}</p>
+            <span className="text-brand-orange font-mono text-[10px] md:text-xs uppercase tracking-widest mb-1 block">{education.period}</span>
+            <h3 className="text-xl md:text-2xl font-display font-medium">{education.title}</h3>
+            <p className="text-white/60 text-sm md:text-base">{education.institution}</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mt-2 md:mt-4">
           <div>
             <h4 className="text-[10px] uppercase font-mono tracking-widest text-white/40 mb-3">Compétences</h4>
             <ul className="flex flex-wrap gap-2">
@@ -167,12 +212,12 @@ export const ExperienceItem: React.FC<{ experience: Experience, index: number }>
     >
       <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
         <div>
-          <h3 className="text-xl font-display font-medium text-white">{experience.title}</h3>
-          <p className="text-brand-orange font-mono text-xs uppercase tracking-widest">{experience.company}</p>
+          <h3 className="text-lg md:text-xl font-display font-medium text-white">{experience.title}</h3>
+          <p className="text-brand-orange font-mono text-[10px] md:text-xs uppercase tracking-widest">{experience.company}</p>
         </div>
-        <Badge className="bg-white/5">{experience.period}</Badge>
+        <Badge className="bg-white/5 text-[10px]">{experience.period}</Badge>
       </div>
-      <p className="text-white/60 text-sm leading-relaxed">
+      <p className="text-white/60 text-xs md:text-sm leading-relaxed">
         {experience.description}
       </p>
     </motion.div>

@@ -16,10 +16,16 @@ import {
   Layout,
   Layers,
   Zap,
-  CheckCircle2
+  CheckCircle2,
+  Home,
+  Briefcase,
+  User,
+  MessageSquare,
+  Monitor,
+  Download
 } from 'lucide-react';
-import { PROJECTS, EDUCATION, SKILLS, EXPERIENCES, CONTENT_WORKS } from './constants';
-import { Section, Button, Badge } from './components/UI';
+import { PROJECTS, EDUCATION, SKILLS, EXPERIENCES, CONTENT_WORKS, CV_URL } from './constants';
+import { Section, Button, Badge, Modal } from './components/UI';
 import { ProjectCard, TimelineItem, ExperienceItem, ContentCard } from './components/Cards';
 import { collection, getDocs, addDoc } from 'firebase/firestore';
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
@@ -88,7 +94,9 @@ const Portfolio = () => {
   const [experiences, setExperiences] = useState<Experience[]>(EXPERIENCES);
   const [education, setEducation] = useState<Education[]>(EDUCATION);
   const [skills, setSkills] = useState<SkillGroup[]>(SKILLS);
+  const [settings, setSettings] = useState<any>({ name: 'BT.', profileImageUrl: 'https://picsum.photos/seed/professional-dev/1200/1200', bio: '' });
   const [loading, setLoading] = useState(true);
+  const [selectedItem, setSelectedItem] = useState<{ title: string, imageUrl: string, category: string, description?: string } | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -122,6 +130,12 @@ const Portfolio = () => {
         if (!skillsSnapshot.empty) {
           setSkills(skillsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)));
         }
+
+        // Fetch Settings
+        const settingsSnapshot = await getDocs(collection(db, 'settings'));
+        if (!settingsSnapshot.empty) {
+          setSettings({ id: settingsSnapshot.docs[0].id, ...settingsSnapshot.docs[0].data() });
+        }
       } catch (error) {
         console.error("Error fetching from Firebase:", error);
       } finally {
@@ -147,15 +161,25 @@ const Portfolio = () => {
         style={{ scaleX }}
       />
       
-      <Navbar />
+      <Navbar settings={settings} />
       
-      <main>
-        <Hero />
+      <main className="pb-24 md:pb-0">
+        <Hero settings={settings} />
         
         <Section id="projets" subtitle="Case Studies" title="Projets Sélectionnés.">
           <div className="space-y-32">
             {projects.map((project, i) => (
-              <ProjectCard key={project.id} project={project} index={i} />
+              <ProjectCard 
+                key={project.id} 
+                project={project} 
+                index={i} 
+                onClick={() => setSelectedItem({ 
+                  title: project.title, 
+                  imageUrl: project.imageUrl, 
+                  category: project.category,
+                  description: project.description
+                })}
+              />
             ))}
           </div>
         </Section>
@@ -163,10 +187,48 @@ const Portfolio = () => {
         <Section id="créations" subtitle="Visual Arts" title="Création de Contenus.">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {contentWorks.map((work, i) => (
-              <ContentCard key={work.id} work={work} index={i} />
+              <ContentCard 
+                key={work.id} 
+                work={work} 
+                index={i} 
+                onClick={() => setSelectedItem({ 
+                  title: work.title, 
+                  imageUrl: work.imageUrl, 
+                  category: work.category,
+                  description: work.description
+                })}
+              />
             ))}
           </div>
         </Section>
+
+        <Modal isOpen={!!selectedItem} onClose={() => setSelectedItem(null)}>
+          {selectedItem && (
+            <div className="flex flex-col lg:flex-row bg-black/40 backdrop-blur-3xl overflow-hidden h-full max-h-[90vh] md:max-h-[85vh]">
+              <div className="lg:w-2/3 h-[40vh] md:h-[50vh] lg:h-auto relative overflow-hidden bg-black/20 flex items-center justify-center">
+                <img 
+                  src={getDirectImageUrl(selectedItem.imageUrl)} 
+                  alt={selectedItem.title}
+                  className="w-full h-full object-contain p-4"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+              <div className="lg:w-1/3 p-6 md:p-12 flex flex-col justify-center gap-4 md:gap-6 overflow-y-auto bg-black/60">
+                <div>
+                  <span className="text-brand-orange font-mono text-[10px] md:text-xs uppercase tracking-widest mb-2 block">{selectedItem.category}</span>
+                  <h2 className="text-2xl md:text-4xl font-display font-medium leading-tight mb-3 md:mb-4">{selectedItem.title}</h2>
+                  <div className="h-px w-12 bg-brand-orange mb-4 md:mb-6" />
+                  <p className="text-white/60 text-sm md:text-lg leading-relaxed">
+                    {selectedItem.description}
+                  </p>
+                </div>
+                <Button onClick={() => setSelectedItem(null)} variant="outline" className="w-full md:w-fit py-3 md:py-4">
+                  Fermer
+                </Button>
+              </div>
+            </div>
+          )}
+        </Modal>
 
         <Section id="expériences" subtitle="Expériences" title="Acquis de l'Expérience.">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -176,7 +238,7 @@ const Portfolio = () => {
           </div>
         </Section>
 
-        <About />
+        <About settings={settings} />
 
         <Section id="formation" subtitle="Parcours" title="Acquis de Formation.">
           <div className="max-w-4xl">
@@ -191,13 +253,12 @@ const Portfolio = () => {
         <Contact />
       </main>
       
-      <Footer />
+      <Footer settings={settings} />
     </div>
   );
 };
 
-const Navbar = () => {
-// ...
+const Navbar = ({ settings }: { settings: any }) => {
   const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
@@ -206,44 +267,126 @@ const Navbar = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const navItems = [
+    { label: 'Accueil', href: '#', icon: Home },
+    { label: 'Projets', href: '#projets', icon: Briefcase },
+    { label: 'Créations', href: '#créations', icon: Monitor },
+    { label: 'À Propos', href: '#à-propos', icon: User },
+    { label: 'Contact', href: '#contact', icon: MessageSquare },
+  ];
+
   return (
-    <motion.nav
-      initial={{ y: -100 }}
-      animate={{ y: 0 }}
-      className={`fixed top-0 left-0 w-full z-50 transition-all duration-500 ${
-        isScrolled ? 'py-4 glass border-b border-white/10' : 'py-8 bg-transparent'
-      }`}
-    >
-      <div className="max-w-7xl mx-auto px-6 md:px-12 flex items-center justify-between">
-        <motion.div 
-          whileHover={{ scale: 1.05 }}
-          className="text-2xl font-display font-bold tracking-tighter cursor-pointer"
-        >
-          BT<span className="text-brand-orange">.</span>
-        </motion.div>
-        
-        <div className="hidden md:flex items-center gap-12">
-          {['Projets', 'Créations', 'À Propos', 'Compétences', 'Contact'].map((item) => (
-            <motion.a
-              key={item}
-              href={`#${item.toLowerCase().replace(' ', '-')}`}
-              whileHover={{ y: -2 }}
-              className="text-xs uppercase font-mono tracking-widest text-white/60 hover:text-white transition-colors"
+    <>
+      {/* Desktop Navbar */}
+      <motion.nav
+        initial={{ y: -100 }}
+        animate={{ y: 0 }}
+        className={`fixed top-0 left-0 w-full z-50 transition-all duration-500 hidden md:block ${
+          isScrolled ? 'py-4 glass border-b border-white/10' : 'py-8 bg-transparent'
+        }`}
+      >
+        <div className="max-w-7xl mx-auto px-6 md:px-12 flex items-center justify-between">
+          <motion.div 
+            whileHover={{ scale: 1.05 }}
+            className="text-2xl font-display font-bold tracking-tighter cursor-pointer"
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          >
+            {settings.name.includes('.') ? (
+              <>
+                {settings.name.split('.')[0]}<span className="text-brand-orange">.</span>
+              </>
+            ) : (
+              settings.name
+            )}
+          </motion.div>
+          
+          <div className="flex items-center gap-12">
+            {navItems.map((item) => (
+              <motion.a
+                key={item.label}
+                href={item.href}
+                whileHover={{ y: -2 }}
+                className="text-xs uppercase font-mono tracking-widest text-white/60 hover:text-white transition-colors"
+              >
+                {item.label}
+              </motion.a>
+            ))}
+          </div>
+
+          <Button 
+            variant="outline" 
+            className="px-6 py-2 text-xs"
+            onClick={() => window.open(CV_URL, '_blank')}
+          >
+            CV
+          </Button>
+        </div>
+      </motion.nav>
+
+      {/* Mobile Top Bar */}
+      <motion.nav
+        initial={{ y: -100 }}
+        animate={{ y: 0 }}
+        className={`fixed top-0 left-0 w-full z-50 md:hidden transition-all duration-300 ${
+          isScrolled ? 'glass py-3 border-b border-white/10' : 'bg-transparent py-4'
+        }`}
+      >
+        <div className="px-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-brand-orange/30">
+              <img 
+                src={getDirectImageUrl(settings.profileImageUrl || "assets/img/boubacar.jpg")} 
+                alt={settings.name} 
+                className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+            <div className="text-lg font-display font-bold tracking-tighter">
+              {settings.name.includes('.') ? (
+                <>
+                  {settings.name.split('.')[0]}<span className="text-brand-orange">.</span>
+                </>
+              ) : (
+                settings.name
+              )}
+            </div>
+          </div>
+
+          <Button 
+            variant="outline" 
+            className="px-4 py-1.5 text-[10px] h-auto flex items-center gap-2"
+            onClick={() => window.open(CV_URL, '_blank')}
+          >
+            <Download size={14} />
+            <span>CV</span>
+          </Button>
+        </div>
+      </motion.nav>
+
+      {/* Mobile Bottom Navigation */}
+      <motion.nav
+        initial={{ y: 100 }}
+        animate={{ y: 0 }}
+        className="fixed bottom-0 left-0 w-full z-50 md:hidden pb-safe"
+      >
+        <div className="mx-4 mb-4 glass border border-white/10 rounded-2xl p-2 flex items-center justify-around shadow-2xl shadow-black">
+          {navItems.map((item) => (
+            <a
+              key={item.label}
+              href={item.href}
+              className="flex flex-col items-center gap-1 p-2 text-white/40 hover:text-brand-orange transition-colors"
             >
-              {item}
-            </motion.a>
+              <item.icon size={18} />
+              <span className="text-[9px] uppercase font-mono tracking-tighter font-bold">{item.label}</span>
+            </a>
           ))}
         </div>
-
-        <Button variant="outline" className="px-6 py-2 text-xs">
-          CV
-        </Button>
-      </div>
-    </motion.nav>
+      </motion.nav>
+    </>
   );
 };
 
-const Hero = () => {
+const Hero = ({ settings }: { settings: any }) => {
   return (
     <section className="relative min-h-screen flex flex-col items-center justify-center pt-24 overflow-hidden">
       {/* Background Elements */}
@@ -276,9 +419,9 @@ const Hero = () => {
             transition={{ duration: 0.8, delay: 0.2 }}
             className="text-4xl md:text-6xl lg:text-7xl font-display font-bold tracking-tight leading-[1.1] mb-8"
           >
-            Développeur <span className="text-brand-orange">Full Stack</span> <br />
-            Web & Mobile <br />
-            <span className="italic font-light text-white/80 text-3xl md:text-5xl">& UI/UX Designer</span>
+            Développeur <span className="text-brand-orange">Full Stack</span> <br className="hidden sm:block" />
+            Web & Mobile <br className="hidden sm:block" />
+            <span className="italic font-light text-white/80 text-2xl md:text-5xl">& UI/UX Designer</span>
           </motion.h1>
 
           <motion.p
@@ -310,7 +453,7 @@ const Hero = () => {
           initial={{ opacity: 0, scale: 0.8, rotate: 5 }}
           animate={{ opacity: 1, scale: 1, rotate: 0 }}
           transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
-          className="relative flex-shrink-0"
+          className="relative flex-shrink-0 hidden md:block"
         >
           <div className="relative w-64 h-64 md:w-80 md:h-80 lg:w-96 lg:h-96">
             {/* Decorative Rings */}
@@ -320,8 +463,8 @@ const Hero = () => {
             {/* Photo Container */}
             <div className="absolute inset-8 rounded-full overflow-hidden border-4 border-white/10 shadow-2xl shadow-brand-orange/20">
               <img 
-                src={getDirectImageUrl("https://picsum.photos/seed/professional-dev/1200/1200")} 
-                alt="Boubacar Traoré" 
+                src={getDirectImageUrl(settings.profileImageUrl || "https://picsum.photos/seed/professional-dev/1200/1200")} 
+                alt={settings.name} 
                 className="w-full h-full object-cover transition-all duration-700 hover:scale-110"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/profile/1200/1200';
@@ -368,7 +511,7 @@ const Hero = () => {
   );
 };
 
-const About = () => {
+const About = ({ settings }: { settings: any }) => {
   return (
     <Section id="à-propos" subtitle="Storytelling" title="Un profil hybride, une vision stratégique.">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
@@ -379,26 +522,24 @@ const About = () => {
           transition={{ duration: 0.8 }}
           className="space-y-8"
         >
-          <p className="text-xl md:text-2xl text-white/80 leading-relaxed font-light">
+          <p className="text-lg md:text-2xl text-white/80 leading-relaxed font-light">
             Mon parcours est le reflet d'une curiosité insatiable pour le numérique. 
             Du <span className="text-white font-medium">DUT Informatique de Gestion</span> à la 
             <span className="text-white font-medium"> Prépa Master Expert Stratégie Digitale</span>, 
             j'ai forgé une double compétence rare.
           </p>
-          <p className="text-lg text-white/60 leading-relaxed">
-            Je ne me contente pas de coder des fonctionnalités ; je structure des écosystèmes, 
-            j'optimise des parcours utilisateurs et je conçois des interfaces qui racontent une histoire. 
-            Ma vision est simple : allier la puissance de IA et du développement à l'élégance du design pour générer un impact réel.
+          <p className="text-sm md:text-lg text-white/60 leading-relaxed">
+            {settings.bio || "Je ne me contente pas de coder des fonctionnalités ; je structure des écosystèmes, j'optimise des parcours utilisateurs et je conçois des interfaces qui racontent une histoire. Ma vision est simple : allier la puissance de IA et du développement à l'élégance du design pour générer un impact réel."}
           </p>
           
-          <div className="grid grid-cols-2 gap-8 pt-8">
+          <div className="grid grid-cols-2 gap-4 md:gap-8 pt-4 md:pt-8">
             <div>
-              <h4 className="text-3xl font-display font-bold text-brand-orange mb-1">4+</h4>
-              <p className="text-xs uppercase font-mono tracking-widest text-white/40">Années d'études</p>
+              <h4 className="text-2xl md:text-3xl font-display font-bold text-brand-orange mb-1">4+</h4>
+              <p className="text-[10px] md:text-xs uppercase font-mono tracking-widest text-white/40">Années d'études</p>
             </div>
             <div>
-              <h4 className="text-3xl font-display font-bold text-brand-orange mb-1">15+</h4>
-              <p className="text-xs uppercase font-mono tracking-widest text-white/40">Projets réalisés</p>
+              <h4 className="text-2xl md:text-3xl font-display font-bold text-brand-orange mb-1">15+</h4>
+              <p className="text-[10px] md:text-xs uppercase font-mono tracking-widest text-white/40">Projets réalisés</p>
             </div>
           </div>
         </motion.div>
@@ -411,12 +552,12 @@ const About = () => {
           className="relative"
         >
           <div className="aspect-[4/5] rounded-2xl overflow-hidden glass p-8 flex flex-col justify-between">
-            <div className="space-y-6">
-              <div className="w-12 h-12 rounded-full bg-brand-orange/20 flex items-center justify-center text-brand-orange">
-                <Zap size={24} />
+            <div className="space-y-4 md:space-y-6">
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-brand-orange/20 flex items-center justify-center text-brand-orange">
+                <Zap size={20} className="md:w-6 md:h-6" />
               </div>
-              <h3 className="text-3xl font-display font-medium">Ma Valeur Ajoutée</h3>
-              <p className="text-white/60">
+              <h3 className="text-2xl md:text-3xl font-display font-medium">Ma Valeur Ajoutée</h3>
+              <p className="text-white/60 text-sm md:text-base leading-relaxed">
                 Je comble le fossé entre le design et le développement. 
                 En comprenant les deux mondes, je garantis une fidélité parfaite entre le prototype et le produit final, 
                 tout en assurant une performance technique irréprochable.
@@ -491,7 +632,7 @@ const FloatingSkill: React.FC<{ skill: { name: string; icon?: string }, index: n
       viewport={{ once: true }}
       className="relative group"
     >
-      <div className="w-20 h-20 md:w-24 md:h-24 rounded-full glass flex items-center justify-center p-5 cursor-pointer hover:border-brand-orange/60 transition-all duration-500 shadow-xl shadow-black/40 group-hover:shadow-brand-orange/20 group-hover:bg-white/10">
+      <div className="w-16 h-16 md:w-24 md:h-24 rounded-full glass flex items-center justify-center p-4 md:p-5 cursor-pointer hover:border-brand-orange/60 transition-all duration-500 shadow-xl shadow-black/40 group-hover:shadow-brand-orange/20 group-hover:bg-white/10">
         {skill.icon ? (
           <img 
             src={getDirectImageUrl(skill.icon)} 
@@ -503,7 +644,7 @@ const FloatingSkill: React.FC<{ skill: { name: string; icon?: string }, index: n
             referrerPolicy="no-referrer" 
           />
         ) : (
-          <Zap size={28} className="text-white/40 group-hover:text-brand-orange transition-colors" />
+          <Zap size={20} className="md:w-7 md:h-7 text-white/40 group-hover:text-brand-orange transition-colors" />
         )}
       </div>
       
@@ -661,21 +802,27 @@ const Contact = () => {
   );
 };
 
-const Footer = () => {
+const Footer = ({ settings }: { settings: any }) => {
   return (
-    <footer className="py-12 px-6 border-t border-white/5">
-      <div className="max-w-7xl mx-auto flex flex-col md:row items-center justify-between gap-8">
+    <footer className="py-12 px-6 border-t border-white/5 mb-24 md:mb-0">
+      <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
         <div className="text-xl font-display font-bold tracking-tighter">
-          BT<span className="text-brand-orange">.</span>
+          {settings.name.includes('.') ? (
+            <>
+              {settings.name.split('.')[0]}<span className="text-brand-orange">.</span>
+            </>
+          ) : (
+            settings.name
+          )}
         </div>
         
-        <p className="text-xs font-mono text-white/40 uppercase tracking-widest">
-          © 2026 — Conçu avec  par Boubacar Traoré
+        <p className="text-[10px] md:text-xs font-mono text-white/40 uppercase tracking-widest text-center">
+          © 2026 — Conçu avec passion par {settings.name.replace('.', '')}
         </p>
 
-        <div className="flex items-center gap-8">
-          <a href="#" className="text-[10px] uppercase font-mono tracking-widest text-white/40 hover:text-white transition-colors">Mentions Légales</a>
-          <a href="#" className="text-[10px] uppercase font-mono tracking-widest text-white/40 hover:text-white transition-colors">Privacy Policy</a>
+        <div className="flex items-center gap-6 md:gap-8">
+          <a href="#" className="text-[10px] uppercase font-mono tracking-widest text-white/40 hover:text-white transition-colors">Mentions</a>
+          <a href="#" className="text-[10px] uppercase font-mono tracking-widest text-white/40 hover:text-white transition-colors">Confidentialité</a>
         </div>
       </div>
     </footer>

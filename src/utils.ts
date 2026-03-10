@@ -3,28 +3,34 @@
  * @param url The Google Drive URL
  * @returns The direct image URL or the original URL if not a Drive link
  */
-export const getDirectImageUrl = (url: string): string => {
-  if (!url) return "";
-
+export const getDirectImageUrl = (url: string | undefined): string => {
+  if (!url) return '';
+  
   // Handle Google Drive links
-  if (url.includes("drive.google.com")) {
-    let fileId = "";
+  if (url.includes('drive.google.com')) {
+    let fileId = '';
+    
+    // Extract ID from various Google Drive URL formats
+    const patterns = [
+      /\/file\/d\/([^/]+)/,
+      /[?&]id=([^&]+)/,
+      /\/d\/([^/]+)/
+    ];
 
-    // Format: https://drive.google.com/file/d/FILE_ID/view?usp=sharing
-    if (url.includes("/file/d/")) {
-      fileId = url.split("/file/d/")[1].split("/")[0];
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) {
+        fileId = match[1];
+        break;
+      }
     }
-    // Format: https://drive.google.com/open?id=FILE_ID
-    else if (url.includes("?id=")) {
-      fileId = url.split("?id=")[1].split("&")[0];
-    }
-
+    
     if (fileId) {
-      // Use the direct link format that works best for embedding
-      // Appending =s0 ensures the original resolution is served
-      return `https://lh3.googleusercontent.com/u/0/d/${fileId}=s0`;
+      // The thumbnail endpoint is very reliable for embedding and bypasses virus scan warnings
+      // sz=w1600 requests a high-quality version
+      return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1600`;
     }
   }
-
+  
   return url;
 };

@@ -1,15 +1,15 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap");
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Outfit", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
-  --color-brand-orange: #F27D26;
-  --color-brand-blue: #007AFF;
-  --color-bg-dark: #0A0A0A;
-  --color-ink-light: #F5F5F0;
+  --color-brand-orange: #f27d26;
+  --color-brand-blue: #007aff;
+  --color-bg-dark: #0a0a0a;
+  --color-ink-light: #f5f5f0;
 }
 
 @layer base {
@@ -17,7 +17,12 @@
     @apply bg-bg-dark text-ink-light font-sans antialiased selection:bg-brand-orange selection:text-white;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     @apply font-display tracking-tight;
   }
 }
@@ -38,4 +43,13 @@
 /* Glassmorphism utility */
 .glass {
   @apply bg-white/5 backdrop-blur-md border border-white/10;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
