@@ -32,7 +32,8 @@ import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebas
 import { db, auth } from './services/firebase';
 import { Project, ContentWork, Experience, Education, SkillGroup } from './types';
 import { AdminDashboard } from './components/Admin';
-import { getDirectImageUrl } from './utils';
+import { getDirectImageUrl, getDirectDownloadUrl } from './utils';
+import { handleFirestoreError, OperationType } from './services/errorHandling';
 
 const Login = ({ onLogin }: { onLogin: (email: string, pass: string) => void }) => {
   const [email, setEmail] = useState('');
@@ -102,39 +103,89 @@ const Portfolio = () => {
     const fetchData = async () => {
       try {
         // Fetch Projects
-        const projectsSnapshot = await getDocs(collection(db, 'projects'));
-        if (!projectsSnapshot.empty) {
-          setProjects(projectsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project)));
+        const projectsPath = 'projects';
+        try {
+          const projectsSnapshot = await getDocs(collection(db, projectsPath));
+          if (!projectsSnapshot.empty) {
+            setProjects(projectsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project)));
+          }
+        } catch (error) {
+          handleFirestoreError(error, OperationType.GET, projectsPath);
         }
 
         // Fetch Content Works
-        const contentSnapshot = await getDocs(collection(db, 'content_works'));
-        if (!contentSnapshot.empty) {
-          setContentWorks(contentSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ContentWork)));
+        const contentPath = 'content_works';
+        try {
+          const contentSnapshot = await getDocs(collection(db, contentPath));
+          if (!contentSnapshot.empty) {
+            setContentWorks(contentSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ContentWork)));
+          }
+        } catch (error) {
+          handleFirestoreError(error, OperationType.GET, contentPath);
         }
 
         // Fetch Experiences
-        const expSnapshot = await getDocs(collection(db, 'experiences'));
-        if (!expSnapshot.empty) {
-          setExperiences(expSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Experience)));
+        const expPath = 'experiences';
+        try {
+          const expSnapshot = await getDocs(collection(db, expPath));
+          if (!expSnapshot.empty) {
+            const data = expSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Experience));
+            // Sort by year (most recent first)
+            data.sort((a, b) => {
+              const getYear = (p: string) => {
+                if (p.toLowerCase().includes('en cours') || p.toLowerCase().includes('présent')) return 9999;
+                const years = p.match(/\d{4}/g);
+                return years ? Math.max(...years.map(Number)) : 0;
+              };
+              return getYear(b.period) - getYear(a.period);
+            });
+            setExperiences(data);
+          }
+        } catch (error) {
+          handleFirestoreError(error, OperationType.GET, expPath);
         }
 
         // Fetch Education
-        const eduSnapshot = await getDocs(collection(db, 'education'));
-        if (!eduSnapshot.empty) {
-          setEducation(eduSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Education)));
+        const eduPath = 'education';
+        try {
+          const eduSnapshot = await getDocs(collection(db, eduPath));
+          if (!eduSnapshot.empty) {
+            const data = eduSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Education));
+            // Sort by year (most recent first)
+            data.sort((a, b) => {
+              const getYear = (p: string) => {
+                if (p.toLowerCase().includes('en cours') || p.toLowerCase().includes('présent')) return 9999;
+                const years = p.match(/\d{4}/g);
+                return years ? Math.max(...years.map(Number)) : 0;
+              };
+              return getYear(b.period) - getYear(a.period);
+            });
+            setEducation(data);
+          }
+        } catch (error) {
+          handleFirestoreError(error, OperationType.GET, eduPath);
         }
 
         // Fetch Skills
-        const skillsSnapshot = await getDocs(collection(db, 'skills'));
-        if (!skillsSnapshot.empty) {
-          setSkills(skillsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)));
+        const skillsPath = 'skills';
+        try {
+          const skillsSnapshot = await getDocs(collection(db, skillsPath));
+          if (!skillsSnapshot.empty) {
+            setSkills(skillsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)));
+          }
+        } catch (error) {
+          handleFirestoreError(error, OperationType.GET, skillsPath);
         }
 
         // Fetch Settings
-        const settingsSnapshot = await getDocs(collection(db, 'settings'));
-        if (!settingsSnapshot.empty) {
-          setSettings({ id: settingsSnapshot.docs[0].id, ...settingsSnapshot.docs[0].data() });
+        const settingsPath = 'settings';
+        try {
+          const settingsSnapshot = await getDocs(collection(db, settingsPath));
+          if (!settingsSnapshot.empty) {
+            setSettings({ id: settingsSnapshot.docs[0].id, ...settingsSnapshot.docs[0].data() });
+          }
+        } catch (error) {
+          handleFirestoreError(error, OperationType.GET, settingsPath);
         }
       } catch (error) {
         console.error("Error fetching from Firebase:", error);
@@ -316,7 +367,7 @@ const Navbar = ({ settings }: { settings: any }) => {
           <Button 
             variant="outline" 
             className="px-6 py-2 text-xs"
-            onClick={() => window.open(CV_URL, '_blank')}
+            onClick={() => window.open(getDirectDownloadUrl(CV_URL), '_blank')}
           >
             CV
           </Button>
@@ -335,9 +386,13 @@ const Navbar = ({ settings }: { settings: any }) => {
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-brand-orange/30">
               <img 
-                src={getDirectImageUrl(settings.profileImageUrl || "assets/img/boubacar.jpg")} 
+                src={getDirectImageUrl(settings.profileImageUrl || "https://picsum.photos/seed/professional-dev/200/200")} 
                 alt={settings.name} 
                 className="w-full h-full object-cover"
+                onError={(e) => {
+                  console.error('Mobile profile image load error:', settings.profileImageUrl);
+                  (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/profile/200/200';
+                }}
                 referrerPolicy="no-referrer"
               />
             </div>
@@ -355,7 +410,7 @@ const Navbar = ({ settings }: { settings: any }) => {
           <Button 
             variant="outline" 
             className="px-4 py-1.5 text-[10px] h-auto flex items-center gap-2"
-            onClick={() => window.open(CV_URL, '_blank')}
+            onClick={() => window.open(getDirectDownloadUrl(CV_URL), '_blank')}
           >
             <Download size={14} />
             <span>CV</span>
@@ -467,6 +522,7 @@ const Hero = ({ settings }: { settings: any }) => {
                 alt={settings.name} 
                 className="w-full h-full object-cover transition-all duration-700 hover:scale-110"
                 onError={(e) => {
+                  console.error('Profile image load error:', settings.profileImageUrl);
                   (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/profile/1200/1200';
                 }}
                 referrerPolicy="no-referrer"
@@ -694,8 +750,9 @@ const Contact = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    const path = 'messages';
     try {
-      await addDoc(collection(db, 'messages'), {
+      await addDoc(collection(db, path), {
         ...formData,
         createdAt: new Date().toISOString(),
         read: false
@@ -704,8 +761,7 @@ const Contact = () => {
       setFormData({ name: '', email: '', message: '' });
       setTimeout(() => setSuccess(false), 5000);
     } catch (error) {
-      console.error("Error sending message:", error);
-      alert("Erreur lors de l'envoi du message. Veuillez réessayer.");
+      handleFirestoreError(error, OperationType.CREATE, path);
     } finally {
       setLoading(false);
     }

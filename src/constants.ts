@@ -7,7 +7,7 @@ import {
 } from "./types";
 
 export const CV_URL =
-  "https://drive.google.com/file/d/1-example-cv-id/view?usp=sharing";
+  "https://drive.google.com/file/d/1yHWU8JZ3p5j6KnkvuZcQqZsZNFiKKHrO/view?usp=drive_link";
 
 export const EXPERIENCES: Experience[] = [
   {
@@ -33,7 +33,7 @@ export const CONTENT_WORKS: ContentWork[] = [
     id: "c1",
     title: "Affiche Événementielle Orange",
     category: "Graphic Design",
-    imageUrl: "https://picsum.photos/seed/poster1/800/1000",
+    imageUrl: "https://giphy.com/gifs/PIMPTAMARQUE-coeur-clavier-travailler-mGut2TpRLC4mvzlwVv",
     description: "Conception d'une affiche pour un événement digital.",
   },
   {
@@ -202,7 +202,7 @@ export const SKILLS: SkillGroup[] = [
       },
       {
         name: "CapCut",
-        icon: "https://www.vectorlogo.zone/logos/capcut/capcut-icon.svg",
+        icon: "https://images.seeklogo.com/logo-png/43/1/capcut-logo-png_seeklogo-437025.png",
       },
       {
         name: "Canva",

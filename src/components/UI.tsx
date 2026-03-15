@@ -163,3 +163,43 @@ export const Modal = ({
     </AnimatePresence>
   );
 };
+
+export const Toast = ({
+  message,
+  type = "success",
+  isVisible,
+  onClose,
+}: {
+  message: string;
+  type?: "success" | "error";
+  isVisible: boolean;
+  onClose: () => void;
+}) => {
+  useEffect(() => {
+    if (isVisible) {
+      const timer = setTimeout(onClose, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [isVisible, onClose]);
+
+  return (
+    <AnimatePresence>
+      {isVisible && (
+        <motion.div
+          initial={{ opacity: 0, y: 50, x: "-50%" }}
+          animate={{ opacity: 1, y: 0, x: "-50%" }}
+          exit={{ opacity: 0, y: 20, x: "-50%" }}
+          className={`fixed bottom-8 left-1/2 z-[10001] px-6 py-3 rounded-full glass border ${type === "success" ? "border-green-500/30 text-green-400" : "border-red-500/30 text-red-400"} flex items-center gap-3 shadow-2xl shadow-black`}
+        >
+          <span className="text-sm font-medium">{message}</span>
+          <button
+            onClick={onClose}
+            className="hover:text-white transition-colors"
+          >
+            <X size={16} />
+          </button>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};

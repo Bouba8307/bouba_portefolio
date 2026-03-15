@@ -1,41 +1,167 @@
-import React, { useState, useEffect } from 'react';
-import { db } from '../services/firebase';
-import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, where } from 'firebase/firestore';
-import { Project, ContentWork, Experience, Education, SkillGroup } from '../types';
-import { PROJECTS, CONTENT_WORKS, EXPERIENCES, EDUCATION, SKILLS } from '../constants';
-import { Section, Button } from './UI';
-import { getDirectImageUrl } from '../utils';
-import { Plus, Trash2, Edit2, LogOut, Save, X, Database, AlertCircle, Upload, Loader2, Link2, User } from 'lucide-react';
-import { uploadFile, isSupabaseConfigured } from '../services/supabase';
+import React, { useState, useEffect } from "react";
+import { db } from "../services/firebase";
+import {
+  collection,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  getDocs,
+  query,
+  where,
+} from "firebase/firestore";
+import {
+  Project,
+  ContentWork,
+  Experience,
+  Education,
+  SkillGroup,
+} from "../types";
+import {
+  PROJECTS,
+  CONTENT_WORKS,
+  EXPERIENCES,
+  EDUCATION,
+  SKILLS,
+} from "../constants";
+import { Section, Button, Toast } from "./UI";
+import { getDirectImageUrl } from "../utils";
+import {
+  Plus,
+  Trash2,
+  Edit2,
+  LogOut,
+  Save,
+  X,
+  Database,
+  AlertCircle,
+  Upload,
+  Loader2,
+  Link2,
+  User,
+} from "lucide-react";
+import { uploadFileToFirebase } from "../services/storage";
+import { handleFirestoreError, OperationType } from "../services/errorHandling";
 
 export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
-  const [activeTab, setActiveTab] = useState<'projects' | 'content' | 'messages' | 'settings'>('projects');
+  const [activeTab, setActiveTab] = useState<
+    | "projects"
+    | "content"
+    | "messages"
+    | "settings"
+    | "experiences"
+    | "education"
+  >("projects");
   const [projects, setProjects] = useState<Project[]>([]);
   const [contentWorks, setContentWorks] = useState<ContentWork[]>([]);
+  const [experiences, setExperiences] = useState<Experience[]>([]);
+  const [education, setEducation] = useState<Education[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
-  const [settings, setSettings] = useState<any>({ name: 'BT.', profileImageUrl: '', bio: '' });
+  const [settings, setSettings] = useState<any>({
+    name: "BT.",
+    profileImageUrl: "",
+    bio: "",
+  });
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadingProfile, setUploadingProfile] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
-  const [imageUrl, setImageUrl] = useState<string>('');
-  const [previewUrl, setPreviewUrl] = useState<string>('');
+  const [imageUrl, setImageUrl] = useState<string>("");
+  const [previewUrl, setPreviewUrl] = useState<string>("");
+  const [toast, setToast] = useState<{
+    message: string;
+    type: "success" | "error";
+    visible: boolean;
+  }>({ message: "", type: "success", visible: false });
+
+  const showToast = (
+    message: string,
+    type: "success" | "error" = "success",
+  ) => {
+    setToast({ message, type, visible: true });
+  };
 
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const pSnap = await getDocs(collection(db, 'projects'));
-      setProjects(pSnap.docs.map(d => ({ id: d.id, ...d.data() } as Project)));
-      
-      const cSnap = await getDocs(collection(db, 'content_works'));
-      setContentWorks(cSnap.docs.map(d => ({ id: d.id, ...d.data() } as ContentWork)));
+      const pPath = "projects";
+      try {
+        const pSnap = await getDocs(collection(db, pPath));
+        setProjects(
+          pSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Project),
+        );
+      } catch (error) {
+        handleFirestoreError(error, OperationType.GET, pPath);
+      }
 
-      const mSnap = await getDocs(collection(db, 'messages'));
-      setMessages(mSnap.docs.map(d => ({ id: d.id, ...d.data() } as any)).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+      const cPath = "content_works";
+      try {
+        const cSnap = await getDocs(collection(db, cPath));
+        setContentWorks(
+          cSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as ContentWork),
+        );
+      } catch (error) {
+        handleFirestoreError(error, OperationType.GET, cPath);
+      }
 
-      const sSnap = await getDocs(collection(db, 'settings'));
-      if (!sSnap.empty) {
-        setSettings({ id: sSnap.docs[0].id, ...sSnap.docs[0].data() });
+      const mPath = "messages";
+      try {
+        const mSnap = await getDocs(collection(db, mPath));
+        setMessages(
+          mSnap.docs
+            .map((d) => ({ id: d.id, ...d.data() }) as any)
+            .sort(
+              (a, b) =>
+                new Date(b.createdAt).getTime() -
+                new Date(a.createdAt).getTime(),
+            ),
+        );
+      } catch (error) {
+        handleFirestoreError(error, OperationType.GET, mPath);
+      }
+
+      const sPath = "settings";
+      try {
+        const sSnap = await getDocs(collection(db, sPath));
+        if (!sSnap.empty) {
+          setSettings({ id: sSnap.docs[0].id, ...sSnap.docs[0].data() });
+        }
+      } catch (error) {
+        handleFirestoreError(error, OperationType.GET, sPath);
+      }
+
+      const getYear = (p: string) => {
+        if (
+          p.toLowerCase().includes("en cours") ||
+          p.toLowerCase().includes("présent")
+        )
+          return 9999;
+        const years = p.match(/\d{4}/g);
+        return years ? Math.max(...years.map(Number)) : 0;
+      };
+
+      const expPath = "experiences";
+      try {
+        const expSnap = await getDocs(collection(db, expPath));
+        const data = expSnap.docs.map(
+          (d) => ({ id: d.id, ...d.data() }) as Experience,
+        );
+        data.sort((a, b) => getYear(b.period) - getYear(a.period));
+        setExperiences(data);
+      } catch (error) {
+        handleFirestoreError(error, OperationType.GET, expPath);
+      }
+
+      const eduPath = "education";
+      try {
+        const eduSnap = await getDocs(collection(db, eduPath));
+        const data = eduSnap.docs.map(
+          (d) => ({ id: d.id, ...d.data() }) as Education,
+        );
+        data.sort((a, b) => getYear(b.period) - getYear(a.period));
+        setEducation(data);
+      } catch (error) {
+        handleFirestoreError(error, OperationType.GET, eduPath);
       }
     } catch (e) {
       console.error(e);
@@ -45,41 +171,64 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
   };
 
   const seedDatabase = async () => {
-    if (!window.confirm('Voulez-vous importer TOUTES les données initiales (Projets, Créations, Expériences, Formations, Compétences) dans Firebase ?')) return;
-    
+    if (
+      !window.confirm(
+        "Voulez-vous importer TOUTES les données initiales (Projets, Créations, Expériences, Formations, Compétences) dans Firebase ?",
+      )
+    )
+      return;
+
     setLoading(true);
     try {
       const collections = [
-        { name: 'projects', data: PROJECTS },
-        { name: 'content_works', data: CONTENT_WORKS },
-        { name: 'experiences', data: EXPERIENCES },
-        { name: 'education', data: EDUCATION },
-        { name: 'skills', data: SKILLS }
+        { name: "projects", data: PROJECTS },
+        { name: "content_works", data: CONTENT_WORKS },
+        { name: "experiences", data: EXPERIENCES },
+        { name: "education", data: EDUCATION },
+        { name: "skills", data: SKILLS },
       ];
 
       for (const col of collections) {
         for (const item of col.data) {
           const { id, ...data } = item as any;
-          
+
           // Check for duplicates based on title (or name for skills)
-          const fieldToMatch = col.name === 'skills' ? 'title' : 'title'; // Most have title
+          const fieldToMatch = col.name === "skills" ? "title" : "title"; // Most have title
           const valueToMatch = data.title || data.name || data.institution;
-          
+
           if (valueToMatch) {
-            const q = query(collection(db, col.name), where(data.title ? 'title' : (data.name ? 'name' : 'institution'), '==', valueToMatch));
-            const existing = await getDocs(q);
-            if (!existing.empty) continue; // Skip if already exists
+            const q = query(
+              collection(db, col.name),
+              where(
+                data.title ? "title" : data.name ? "name" : "institution",
+                "==",
+                valueToMatch,
+              ),
+            );
+            try {
+              const existing = await getDocs(q);
+              if (!existing.empty) continue; // Skip if already exists
+            } catch (error) {
+              handleFirestoreError(error, OperationType.GET, col.name);
+            }
           }
-          
-          await addDoc(collection(db, col.name), data);
+
+          try {
+            await addDoc(collection(db, col.name), data);
+          } catch (error) {
+            handleFirestoreError(error, OperationType.CREATE, col.name);
+          }
         }
       }
-      
-      alert('Toutes les données fictives ont été enregistrées dans Firebase avec succès !');
+
+      alert(
+        "Toutes les données fictives ont été enregistrées dans Firebase avec succès !",
+      );
+      showToast("Données importées avec succès");
       fetchAll();
     } catch (e) {
       console.error(e);
-      alert('Erreur lors de l\'importation globale');
+      showToast("Erreur lors de l'importation", "error");
     } finally {
       setLoading(false);
     }
@@ -89,10 +238,14 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
     fetchAll();
   }, []);
 
-  const handleDelete = async (id: string, type: 'projects' | 'content_works') => {
-    if (window.confirm('Supprimer cet élément ?')) {
-      await deleteDoc(doc(db, type, id));
-      fetchAll();
+  const handleDelete = async (id: string, type: string) => {
+    if (window.confirm("Supprimer cet élément ?")) {
+      try {
+        await deleteDoc(doc(db, type, id));
+        fetchAll();
+      } catch (error) {
+        handleFirestoreError(error, OperationType.DELETE, type);
+      }
     }
   };
 
@@ -102,28 +255,34 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
 
     setUploading(true);
     try {
-      const publicUrl = await uploadFile(file);
+      const publicUrl = await uploadFileToFirebase(file);
+      console.log("File uploaded to Firebase Storage:", publicUrl);
       setImageUrl(publicUrl);
       setPreviewUrl(publicUrl);
-      alert('Image téléchargée avec succès sur Supabase !');
+      showToast("Image téléchargée avec succès");
     } catch (error: any) {
-      console.error('Upload error:', error);
-      alert('Erreur lors du téléchargement : ' + error.message);
+      console.error("Upload error:", error);
+      showToast("Erreur lors du téléchargement: " + error.message, "error");
     } finally {
       setUploading(false);
     }
   };
 
-  const handleProfileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleProfileUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploadingProfile(true);
     try {
-      const url = await uploadFile(file);
+      const url = await uploadFileToFirebase(file);
+      console.log("Profile image uploaded to Firebase Storage:", url);
       setSettings({ ...settings, profileImageUrl: url });
+      showToast("Photo de profil mise à jour");
     } catch (e: any) {
-      alert('Erreur lors du téléchargement : ' + e.message);
+      console.error("Profile upload error:", e);
+      showToast("Erreur lors du téléchargement: " + e.message, "error");
     } finally {
       setUploadingProfile(false);
     }
@@ -134,32 +293,71 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
     setLoading(true);
     const formData = new FormData(e.target as HTMLFormElement);
     const data: any = Object.fromEntries(formData.entries());
-    
-    // Handle stack as array
-    if (data.stack) {
-      data.stack = data.stack.split(',').map((s: string) => s.trim());
-    }
+
+    // Handle stack, skills, technologies, methodologies as arrays
+    if (data.stack)
+      data.stack = data.stack.split(",").map((s: string) => s.trim());
+    if (data.skills && typeof data.skills === "string")
+      data.skills = data.skills.split(",").map((s: string) => s.trim());
+    if (data.technologies && typeof data.technologies === "string")
+      data.technologies = data.technologies
+        .split(",")
+        .map((s: string) => s.trim());
+    if (data.methodologies && typeof data.methodologies === "string")
+      data.methodologies = data.methodologies
+        .split(",")
+        .map((s: string) => s.trim());
 
     try {
-      if (activeTab === 'settings') {
-        if (settings.id) {
-          await updateDoc(doc(db, 'settings', settings.id), data);
-        } else {
-          await addDoc(collection(db, 'settings'), data);
+      if (activeTab === "settings") {
+        const path = "settings";
+        try {
+          if (settings.id) {
+            await updateDoc(doc(db, path, settings.id), data);
+          } else {
+            await addDoc(collection(db, path), data);
+          }
+          showToast("Paramètres mis à jour !");
+        } catch (error) {
+          handleFirestoreError(error, OperationType.WRITE, path);
         }
-        alert('Paramètres mis à jour !');
       } else if (editingItem?.id) {
-        await updateDoc(doc(db, activeTab === 'projects' ? 'projects' : 'content_works', editingItem.id), data);
+        const path =
+          activeTab === "projects"
+            ? "projects"
+            : activeTab === "content"
+              ? "content_works"
+              : activeTab === "experiences"
+                ? "experiences"
+                : "education";
+        try {
+          await updateDoc(doc(db, path, editingItem.id), data);
+          showToast("Modifié avec succès !");
+        } catch (error) {
+          handleFirestoreError(error, OperationType.UPDATE, path);
+        }
       } else {
-        await addDoc(collection(db, activeTab === 'projects' ? 'projects' : 'content_works'), data);
+        const path =
+          activeTab === "projects"
+            ? "projects"
+            : activeTab === "content"
+              ? "content_works"
+              : activeTab === "experiences"
+                ? "experiences"
+                : "education";
+        try {
+          await addDoc(collection(db, path), data);
+          showToast("Ajouté avec succès !");
+        } catch (error) {
+          handleFirestoreError(error, OperationType.CREATE, path);
+        }
       }
-      
-      if (activeTab !== 'settings') setEditingItem(null);
+
+      if (activeTab !== "settings") setEditingItem(null);
       fetchAll();
-      if (activeTab !== 'settings') alert('Sauvegardé avec succès !');
     } catch (e) {
       console.error(e);
-      alert('Erreur lors de la sauvegarde');
+      // Error is already handled by handleFirestoreError if it was a firestore error
     } finally {
       setLoading(false);
     }
@@ -171,7 +369,11 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
         <div className="flex justify-between items-center mb-12">
           <h1 className="text-4xl font-display font-medium">Dashboard Admin</h1>
           <div className="flex items-center gap-4">
-            <Button variant="outline" onClick={seedDatabase} className="flex items-center gap-2 border-brand-orange/20 text-brand-orange hover:bg-brand-orange/10">
+            <Button
+              variant="outline"
+              onClick={seedDatabase}
+              className="flex items-center gap-2 border-brand-orange/20 text-brand-orange hover:bg-brand-orange/10"
+            >
               <Database size={18} /> Migrer Données Fictives
             </Button>
             <Button onClick={onLogout} className="flex items-center gap-2">
@@ -186,37 +388,63 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
               <AlertCircle size={24} />
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-medium mb-1">Base de données vide détectée</h3>
-              <p className="text-white/60 text-sm">Souhaitez-vous importer les données de démonstration pour commencer ?</p>
+              <h3 className="text-lg font-medium mb-1">
+                Base de données vide détectée
+              </h3>
+              <p className="text-white/60 text-sm">
+                Souhaitez-vous importer les données de démonstration pour
+                commencer ?
+              </p>
             </div>
-            <Button onClick={seedDatabase} variant="secondary" className="text-xs py-2">
+            <Button
+              onClick={seedDatabase}
+              variant="secondary"
+              className="text-xs py-2"
+            >
               Importer maintenant
             </Button>
           </div>
         )}
 
         <div className="flex gap-4 mb-8 overflow-x-auto pb-2 no-scrollbar">
-          <button 
-            onClick={() => setActiveTab('projects')}
-            className={`px-6 py-2 rounded-full font-mono text-sm transition-all whitespace-nowrap ${activeTab === 'projects' ? 'bg-brand-orange text-white' : 'bg-white/5 text-white/60 hover:bg-white/10'}`}
+          <button
+            onClick={() => setActiveTab("projects")}
+            className={`px-6 py-2 rounded-full font-mono text-sm transition-all whitespace-nowrap ${activeTab === "projects" ? "bg-brand-orange text-white" : "bg-white/5 text-white/60 hover:bg-white/10"}`}
           >
             PROJETS
           </button>
-          <button 
-            onClick={() => setActiveTab('content')}
-            className={`px-6 py-2 rounded-full font-mono text-sm transition-all whitespace-nowrap ${activeTab === 'content' ? 'bg-brand-orange text-white' : 'bg-white/5 text-white/60 hover:bg-white/10'}`}
+          <button
+            onClick={() => setActiveTab("content")}
+            className={`px-6 py-2 rounded-full font-mono text-sm transition-all whitespace-nowrap ${activeTab === "content" ? "bg-brand-orange text-white" : "bg-white/5 text-white/60 hover:bg-white/10"}`}
           >
             CRÉATIONS
           </button>
-          <button 
-            onClick={() => setActiveTab('messages')}
-            className={`px-6 py-2 rounded-full font-mono text-sm transition-all whitespace-nowrap ${activeTab === 'messages' ? 'bg-brand-orange text-white' : 'bg-white/5 text-white/60 hover:bg-white/10'}`}
+          <button
+            onClick={() => setActiveTab("experiences")}
+            className={`px-6 py-2 rounded-full font-mono text-sm transition-all whitespace-nowrap ${activeTab === "experiences" ? "bg-brand-orange text-white" : "bg-white/5 text-white/60 hover:bg-white/10"}`}
           >
-            MESSAGES {messages.filter(m => !m.read).length > 0 && <span className="ml-2 bg-white text-brand-orange px-2 py-0.5 rounded-full text-[10px]">{messages.filter(m => !m.read).length}</span>}
+            EXPÉRIENCES
           </button>
-          <button 
-            onClick={() => setActiveTab('settings')}
-            className={`px-6 py-2 rounded-full font-mono text-sm transition-all whitespace-nowrap ${activeTab === 'settings' ? 'bg-brand-orange text-white' : 'bg-white/5 text-white/60 hover:bg-white/10'}`}
+          <button
+            onClick={() => setActiveTab("education")}
+            className={`px-6 py-2 rounded-full font-mono text-sm transition-all whitespace-nowrap ${activeTab === "education" ? "bg-brand-orange text-white" : "bg-white/5 text-white/60 hover:bg-white/10"}`}
+          >
+            FORMATIONS
+          </button>
+          <button
+            onClick={() => setActiveTab("messages")}
+            className={`px-6 py-2 rounded-full font-mono text-sm transition-all whitespace-nowrap ${activeTab === "messages" ? "bg-brand-orange text-white" : "bg-white/5 text-white/60 hover:bg-white/10"}`}
+          >
+            MESSAGES{" "}
+            {messages.filter((m) => !m.read).length > 0 && (
+              <span className="ml-2 bg-white text-brand-orange px-2 py-0.5 rounded-full text-[10px]">
+                {messages.filter((m) => !m.read).length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab("settings")}
+            className={`px-6 py-2 rounded-full font-mono text-sm transition-all whitespace-nowrap ${activeTab === "settings" ? "bg-brand-orange text-white" : "bg-white/5 text-white/60 hover:bg-white/10"}`}
           >
             PARAMÈTRES
           </button>
@@ -226,13 +454,24 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
           <div className="lg:col-span-2 space-y-4">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-display">
-                {activeTab === 'projects' ? 'Liste des Projets' : activeTab === 'content' ? 'Liste des Créations' : 'Messages Reçus'}
+                {activeTab === "projects"
+                  ? "Liste des Projets"
+                  : activeTab === "content"
+                    ? "Liste des Créations"
+                    : activeTab === "experiences"
+                      ? "Liste des Expériences"
+                      : activeTab === "education"
+                        ? "Liste des Formations"
+                        : "Messages Reçus"}
               </h2>
-              {activeTab !== 'messages' && (
-                <Button onClick={() => {
-                  setEditingItem({});
-                  setPreviewUrl('');
-                }} className="p-2 rounded-full">
+              {activeTab !== "messages" && (
+                <Button
+                  onClick={() => {
+                    setEditingItem({});
+                    setPreviewUrl("");
+                  }}
+                  className="p-2 rounded-full"
+                >
                   <Plus size={20} />
                 </Button>
               )}
@@ -240,23 +479,39 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
 
             {loading ? (
               <div className="animate-pulse space-y-4">
-                {[1, 2, 3].map(i => <div key={i} className="h-20 bg-white/5 rounded-xl" />)}
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-20 bg-white/5 rounded-xl" />
+                ))}
               </div>
-            ) : activeTab === 'settings' ? (
+            ) : activeTab === "settings" ? (
               <div className="glass p-8 rounded-2xl">
                 <h2 className="text-2xl font-display mb-8">Mon Profil</h2>
                 <form onSubmit={handleSave} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label className="block text-xs font-mono text-white/40 uppercase mb-2">Nom d'affichage</label>
-                      <input name="name" defaultValue={settings.name} required className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 focus:border-brand-orange outline-none transition-colors" />
+                      <label className="block text-xs font-mono text-white/40 uppercase mb-2">
+                        Nom d'affichage
+                      </label>
+                      <input
+                        name="name"
+                        defaultValue={settings.name}
+                        required
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 focus:border-brand-orange outline-none transition-colors"
+                      />
                     </div>
                     <div>
-                      <label className="block text-xs font-mono text-white/40 uppercase mb-2">Photo de profil</label>
+                      <label className="block text-xs font-mono text-white/40 uppercase mb-2">
+                        Photo de profil
+                      </label>
                       <div className="flex items-center gap-4">
                         <div className="w-16 h-16 rounded-full overflow-hidden border border-white/10 bg-white/5">
                           {settings.profileImageUrl ? (
-                            <img src={getDirectImageUrl(settings.profileImageUrl)} alt="Preview" className="w-full h-full object-cover" />
+                            <img
+                              src={getDirectImageUrl(settings.profileImageUrl)}
+                              alt="Preview"
+                              className="w-full h-full object-cover"
+                              referrerPolicy="no-referrer"
+                            />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-white/20">
                               <User size={24} />
@@ -265,74 +520,121 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                         </div>
                         <div className="flex-1 space-y-2">
                           <div className="flex gap-2">
-                            <input 
-                              type="text" 
+                            <input
+                              type="text"
+                              name="profileImageUrl"
                               value={settings.profileImageUrl}
-                              onChange={(e) => setSettings({ ...settings, profileImageUrl: e.target.value })}
+                              onChange={(e) =>
+                                setSettings({
+                                  ...settings,
+                                  profileImageUrl: e.target.value,
+                                })
+                              }
                               className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm focus:border-brand-orange outline-none transition-colors"
                               placeholder="URL de l'image"
                             />
-                            <label className={`cursor-pointer flex items-center justify-center w-10 h-10 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 transition-colors ${!isSupabaseConfigured ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                              <input 
-                                type="file" 
-                                className="hidden" 
-                                accept="image/*" 
+                            <label
+                              className={`cursor-pointer flex items-center justify-center w-10 h-10 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 transition-colors`}
+                            >
+                              <input
+                                type="file"
+                                className="hidden"
+                                accept="image/*"
                                 onChange={handleProfileUpload}
-                                disabled={!isSupabaseConfigured || uploadingProfile}
+                                disabled={uploadingProfile}
                               />
-                              {uploadingProfile ? <Loader2 size={18} className="animate-spin text-brand-orange" /> : <Upload size={18} />}
+                              {uploadingProfile ? (
+                                <Loader2
+                                  size={18}
+                                  className="animate-spin text-brand-orange"
+                                />
+                              ) : (
+                                <Upload size={18} />
+                              )}
                             </label>
                           </div>
-                          {!isSupabaseConfigured && (
-                            <p className="text-[10px] text-brand-orange flex items-center gap-1">
-                              <AlertCircle size={10} /> Supabase non configuré pour l'upload
-                            </p>
-                          )}
                         </div>
                       </div>
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-mono text-white/40 uppercase mb-2">Bio courte</label>
-                    <textarea name="bio" defaultValue={settings.bio} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 focus:border-brand-orange outline-none transition-colors h-32" />
+                    <label className="block text-xs font-mono text-white/40 uppercase mb-2">
+                      Bio courte
+                    </label>
+                    <textarea
+                      name="bio"
+                      defaultValue={settings.bio}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 focus:border-brand-orange outline-none transition-colors h-32"
+                    />
                   </div>
-                  <Button type="submit" disabled={loading} className="w-full md:w-auto px-12">
-                    {loading ? 'Enregistrement...' : 'Mettre à jour le profil'}
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full md:w-auto px-12"
+                  >
+                    {loading ? "Enregistrement..." : "Mettre à jour le profil"}
                   </Button>
                 </form>
               </div>
-            ) : activeTab === 'messages' ? (
+            ) : activeTab === "messages" ? (
               <div className="space-y-4">
                 {messages.length === 0 ? (
-                  <p className="text-white/40 text-center py-12 glass rounded-2xl">Aucun message reçu pour le moment.</p>
+                  <p className="text-white/40 text-center py-12 glass rounded-2xl">
+                    Aucun message reçu pour le moment.
+                  </p>
                 ) : (
                   messages.map((msg) => (
-                    <div key={msg.id} className={`glass p-6 rounded-xl border ${msg.read ? 'border-white/5' : 'border-brand-orange/30'} transition-all`}>
+                    <div
+                      key={msg.id}
+                      className={`glass p-6 rounded-xl border ${msg.read ? "border-white/5" : "border-brand-orange/30"} transition-all`}
+                    >
                       <div className="flex justify-between items-start mb-4">
                         <div>
                           <h3 className="font-medium text-lg">{msg.name}</h3>
-                          <p className="text-sm text-brand-orange">{msg.email}</p>
+                          <p className="text-sm text-brand-orange">
+                            {msg.email}
+                          </p>
                           <p className="text-[10px] text-white/40 uppercase font-mono mt-1">
                             {new Date(msg.createdAt).toLocaleString()}
                           </p>
                         </div>
                         <div className="flex gap-2">
                           {!msg.read && (
-                            <button 
+                            <button
                               onClick={async () => {
-                                await updateDoc(doc(db, 'messages', msg.id), { read: true });
-                                fetchAll();
+                                const path = "messages";
+                                try {
+                                  await updateDoc(doc(db, path, msg.id), {
+                                    read: true,
+                                  });
+                                  fetchAll();
+                                } catch (error) {
+                                  handleFirestoreError(
+                                    error,
+                                    OperationType.UPDATE,
+                                    path,
+                                  );
+                                }
                               }}
                               className="text-[10px] uppercase font-mono bg-brand-orange/20 text-brand-orange px-2 py-1 rounded hover:bg-brand-orange/30 transition-colors"
                             >
                               Marquer comme lu
                             </button>
                           )}
-                          <button 
+                          <button
                             onClick={async () => {
-                              if (window.confirm('Supprimer ce message ?')) {
-                                await deleteDoc(doc(db, 'messages', msg.id));
-                                fetchAll();
+                              if (window.confirm("Supprimer ce message ?")) {
+                                const path = "messages";
+                                try {
+                                  await deleteDoc(doc(db, path, msg.id));
+                                  fetchAll();
+                                } catch (error) {
+                                  handleFirestoreError(
+                                    error,
+                                    OperationType.DELETE,
+                                    path,
+                                  );
+                                }
                               }
                             }}
                             className="p-2 hover:text-red-500 transition-colors"
@@ -350,21 +652,53 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
               </div>
             ) : (
               <div className="space-y-4">
-                {(activeTab === 'projects' ? projects : contentWorks).map((item: any) => (
-                  <div key={item.id} className="glass p-4 rounded-xl flex justify-between items-center group">
+                {(activeTab === "projects"
+                  ? projects
+                  : activeTab === "content"
+                    ? contentWorks
+                    : activeTab === "experiences"
+                      ? experiences
+                      : education
+                ).map((item: any) => (
+                  <div
+                    key={item.id}
+                    className="glass p-4 rounded-xl flex justify-between items-center group"
+                  >
                     <div>
                       <h3 className="font-medium">{item.title}</h3>
-                      <p className="text-sm text-white/40">{item.category}</p>
+                      <p className="text-sm text-white/40">
+                        {item.category || item.company || item.institution}
+                      </p>
+                      <p className="text-[10px] text-brand-orange font-mono uppercase">
+                        {item.period}
+                      </p>
                     </div>
                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => {
-                        setEditingItem(item);
-                        setImageUrl(item.imageUrl || '');
-                        setPreviewUrl(item.imageUrl || '');
-                      }} className="p-2 hover:text-brand-orange transition-colors">
+                      <button
+                        onClick={() => {
+                          setEditingItem(item);
+                          setImageUrl(item.imageUrl || "");
+                          setPreviewUrl(item.imageUrl || "");
+                        }}
+                        className="p-2 hover:text-brand-orange transition-colors"
+                      >
                         <Edit2 size={18} />
                       </button>
-                      <button onClick={() => handleDelete(item.id, activeTab === 'projects' ? 'projects' : 'content_works')} className="p-2 hover:text-red-500 transition-colors">
+                      <button
+                        onClick={() =>
+                          handleDelete(
+                            item.id,
+                            activeTab === "projects"
+                              ? "projects"
+                              : activeTab === "content"
+                                ? "content_works"
+                                : activeTab === "experiences"
+                                  ? "experiences"
+                                  : "education",
+                          )
+                        }
+                        className="p-2 hover:text-red-500 transition-colors"
+                      >
                         <Trash2 size={18} />
                       </button>
                     </div>
@@ -378,121 +712,288 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
             {editingItem && (
               <div className="glass p-6 rounded-2xl sticky top-8">
                 <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-display">{editingItem.id ? 'Modifier' : 'Ajouter'}</h2>
-                  <button onClick={() => {
-                    setEditingItem(null);
-                    setImageUrl('');
-                    setPreviewUrl('');
-                  }} className="text-white/40 hover:text-white">
+                  <h2 className="text-xl font-display">
+                    {editingItem.id ? "Modifier" : "Ajouter"}
+                  </h2>
+                  <button
+                    onClick={() => {
+                      setEditingItem(null);
+                      setImageUrl("");
+                      setPreviewUrl("");
+                    }}
+                    className="text-white/40 hover:text-white"
+                  >
                     <X size={20} />
                   </button>
                 </div>
 
                 <form onSubmit={handleSave} className="space-y-4">
                   <div>
-                    <label className="block text-xs font-mono text-white/40 uppercase mb-1">Titre</label>
-                    <input name="title" defaultValue={editingItem.title} required className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors" />
+                    <label className="block text-xs font-mono text-white/40 uppercase mb-1">
+                      Titre / Diplôme
+                    </label>
+                    <input
+                      name="title"
+                      defaultValue={editingItem.title}
+                      required
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors"
+                    />
                   </div>
-                  <div>
-                    <label className="block text-xs font-mono text-white/40 uppercase mb-1">Catégorie</label>
-                    <input name="category" defaultValue={editingItem.category} required className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors" />
-                  </div>
-                  <div>
-                    <div className="flex justify-between items-center mb-1">
-                      <label className="block text-xs font-mono text-white/40 uppercase">Image (Supabase Storage)</label>
-                      {!isSupabaseConfigured && (
-                        <span className="text-[10px] text-red-500 font-mono animate-pulse flex items-center gap-1">
-                          <AlertCircle size={10} /> Clés manquantes
-                        </span>
-                      )}
-                    </div>
-                    
-                    <div className="flex items-center gap-3 mb-3">
-                      <label className={`flex-1 flex items-center justify-center gap-2 bg-white/5 border border-dashed border-white/20 rounded-lg px-4 py-3 transition-colors ${!isSupabaseConfigured ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-white/10'}`}>
-                        {uploading ? (
-                          <Loader2 size={18} className="animate-spin text-brand-orange" />
-                        ) : (
-                          <Upload size={18} className={isSupabaseConfigured ? "text-white/40" : "text-red-500/40"} />
-                        )}
-                        <span className="text-xs text-white/60">
-                          {!isSupabaseConfigured ? 'Supabase non configuré' : uploading ? 'Téléchargement...' : 'Choisir un fichier'}
-                        </span>
-                        <input 
-                          type="file" 
-                          className="hidden" 
-                          accept="image/*" 
-                          onChange={handleFileUpload}
-                          disabled={uploading || !isSupabaseConfigured}
-                        />
+
+                  {(activeTab === "projects" || activeTab === "content") && (
+                    <div>
+                      <label className="block text-xs font-mono text-white/40 uppercase mb-1">
+                        Catégorie
                       </label>
-                    </div>
-                    
-                    <div className="flex items-center gap-2 mb-1">
-                      <Link2 size={12} className="text-white/40" />
-                      <label className="block text-xs font-mono text-white/40 uppercase">Ou URL directe</label>
-                    </div>
-                    <div className="space-y-3">
-                      <input 
-                        name="imageUrl" 
-                        value={imageUrl} 
-                        required 
-                        onChange={(e) => {
-                          setImageUrl(e.target.value);
-                          setPreviewUrl(e.target.value);
-                        }}
-                        className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors" 
+                      <input
+                        name="category"
+                        defaultValue={editingItem.category}
+                        required
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors"
                       />
-                      {(previewUrl || editingItem.imageUrl) && (
-                        <div className="relative aspect-video rounded-lg overflow-hidden border border-white/10 bg-white/5">
-                          <img 
-                            src={getDirectImageUrl(previewUrl || editingItem.imageUrl)} 
-                            className="w-full h-full object-cover"
-                            alt="Preview"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/error/1200/1600';
-                            }}
-                          />
-                        </div>
-                      )}
                     </div>
-                  </div>
+                  )}
+
+                  {activeTab === "experiences" && (
+                    <div>
+                      <label className="block text-xs font-mono text-white/40 uppercase mb-1">
+                        Entreprise
+                      </label>
+                      <input
+                        name="company"
+                        defaultValue={editingItem.company}
+                        required
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors"
+                      />
+                    </div>
+                  )}
+
+                  {activeTab === "education" && (
+                    <div>
+                      <label className="block text-xs font-mono text-white/40 uppercase mb-1">
+                        Institution
+                      </label>
+                      <input
+                        name="institution"
+                        defaultValue={editingItem.institution}
+                        required
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors"
+                      />
+                    </div>
+                  )}
+
+                  {(activeTab === "experiences" ||
+                    activeTab === "education") && (
+                    <div>
+                      <label className="block text-xs font-mono text-white/40 uppercase mb-1">
+                        Période (ex: 2024 - Présent)
+                      </label>
+                      <input
+                        name="period"
+                        defaultValue={editingItem.period}
+                        required
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors"
+                      />
+                    </div>
+                  )}
+
+                  {(activeTab === "projects" || activeTab === "content") && (
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="block text-xs font-mono text-white/40 uppercase">
+                          Image (Firebase Storage)
+                        </label>
+                      </div>
+
+                      <div className="flex items-center gap-3 mb-3">
+                        <label
+                          className={`flex-1 flex items-center justify-center gap-2 bg-white/5 border border-dashed border-white/20 rounded-lg px-4 py-3 transition-colors cursor-pointer hover:bg-white/10`}
+                        >
+                          {uploading ? (
+                            <Loader2
+                              size={18}
+                              className="animate-spin text-brand-orange"
+                            />
+                          ) : (
+                            <Upload size={18} className="text-white/40" />
+                          )}
+                          <span className="text-xs text-white/60">
+                            {uploading
+                              ? "Téléchargement..."
+                              : "Choisir un fichier"}
+                          </span>
+                          <input
+                            type="file"
+                            className="hidden"
+                            accept="image/*"
+                            onChange={handleFileUpload}
+                            disabled={uploading}
+                          />
+                        </label>
+                      </div>
+
+                      <div className="flex items-center gap-2 mb-1">
+                        <Link2 size={12} className="text-white/40" />
+                        <label className="block text-xs font-mono text-white/40 uppercase">
+                          Ou URL directe
+                        </label>
+                      </div>
+                      <div className="space-y-3">
+                        <input
+                          name="imageUrl"
+                          value={imageUrl}
+                          required
+                          onChange={(e) => {
+                            setImageUrl(e.target.value);
+                            setPreviewUrl(e.target.value);
+                          }}
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors"
+                        />
+                        {(previewUrl || editingItem.imageUrl) && (
+                          <div className="relative aspect-video rounded-lg overflow-hidden border border-white/10 bg-white/5">
+                            <img
+                              src={getDirectImageUrl(
+                                previewUrl || editingItem.imageUrl,
+                              )}
+                              className="w-full h-full object-cover"
+                              alt="Preview"
+                              onError={(e) => {
+                                console.error(
+                                  "Image load error for:",
+                                  previewUrl || editingItem.imageUrl,
+                                );
+                                (e.target as HTMLImageElement).src =
+                                  "https://picsum.photos/seed/error/1200/1600";
+                              }}
+                              referrerPolicy="no-referrer"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   <div>
-                    <label className="block text-xs font-mono text-white/40 uppercase mb-1">Description</label>
-                    <textarea name="description" defaultValue={editingItem.description} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors h-24" />
+                    <label className="block text-xs font-mono text-white/40 uppercase mb-1">
+                      Description
+                    </label>
+                    <textarea
+                      name="description"
+                      defaultValue={editingItem.description}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors h-24"
+                    />
                   </div>
-                  
-                  {activeTab === 'projects' && (
+
+                  {activeTab === "education" && (
                     <>
                       <div>
-                        <label className="block text-xs font-mono text-white/40 uppercase mb-1">Stack (séparé par virgules)</label>
-                        <input name="stack" defaultValue={editingItem.stack?.join(', ')} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors" />
-                      </div>
-                      <div className="grid grid-cols-1 gap-4">
-                        <div>
-                          <label className="block text-xs font-mono text-white/40 uppercase mb-1">Lien du projet (Live)</label>
-                          <input name="link" defaultValue={editingItem.link} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors" placeholder="https://..." />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-mono text-white/40 uppercase mb-1">Lien GitHub</label>
-                          <input name="githubUrl" defaultValue={editingItem.githubUrl} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors" placeholder="https://github.com/..." />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-mono text-white/40 uppercase mb-1">Lien Figma</label>
-                          <input name="figmaUrl" defaultValue={editingItem.figmaUrl} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors" placeholder="https://figma.com/..." />
-                        </div>
+                        <label className="block text-xs font-mono text-white/40 uppercase mb-1">
+                          Compétences (séparé par virgules)
+                        </label>
+                        <input
+                          name="skills"
+                          defaultValue={editingItem.skills?.join(", ")}
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors"
+                        />
                       </div>
                       <div>
-                        <label className="block text-xs font-mono text-white/40 uppercase mb-1">Problème</label>
-                        <textarea name="problem" defaultValue={editingItem.problem} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors" />
+                        <label className="block text-xs font-mono text-white/40 uppercase mb-1">
+                          Technologies (séparé par virgules)
+                        </label>
+                        <input
+                          name="technologies"
+                          defaultValue={editingItem.technologies?.join(", ")}
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors"
+                        />
                       </div>
                       <div>
-                        <label className="block text-xs font-mono text-white/40 uppercase mb-1">Solution</label>
-                        <textarea name="solution" defaultValue={editingItem.solution} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors" />
+                        <label className="block text-xs font-mono text-white/40 uppercase mb-1">
+                          Méthodologies (séparé par virgules)
+                        </label>
+                        <input
+                          name="methodologies"
+                          defaultValue={editingItem.methodologies?.join(", ")}
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors"
+                        />
                       </div>
                     </>
                   )}
 
-                  <Button type="submit" disabled={loading} className="w-full flex items-center justify-center gap-2">
+                  {activeTab === "projects" && (
+                    <>
+                      <div>
+                        <label className="block text-xs font-mono text-white/40 uppercase mb-1">
+                          Stack (séparé par virgules)
+                        </label>
+                        <input
+                          name="stack"
+                          defaultValue={editingItem.stack?.join(", ")}
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors"
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 gap-4">
+                        <div>
+                          <label className="block text-xs font-mono text-white/40 uppercase mb-1">
+                            Lien du projet (Live)
+                          </label>
+                          <input
+                            name="link"
+                            defaultValue={editingItem.link}
+                            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors"
+                            placeholder="https://..."
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-mono text-white/40 uppercase mb-1">
+                            Lien GitHub
+                          </label>
+                          <input
+                            name="githubUrl"
+                            defaultValue={editingItem.githubUrl}
+                            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors"
+                            placeholder="https://github.com/..."
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-mono text-white/40 uppercase mb-1">
+                            Lien Figma
+                          </label>
+                          <input
+                            name="figmaUrl"
+                            defaultValue={editingItem.figmaUrl}
+                            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors"
+                            placeholder="https://figma.com/..."
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-mono text-white/40 uppercase mb-1">
+                          Problème
+                        </label>
+                        <textarea
+                          name="problem"
+                          defaultValue={editingItem.problem}
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-mono text-white/40 uppercase mb-1">
+                          Solution
+                        </label>
+                        <textarea
+                          name="solution"
+                          defaultValue={editingItem.solution}
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors"
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full flex items-center justify-center gap-2"
+                  >
                     {loading ? (
                       <>
                         <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
@@ -510,6 +1011,12 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
           </div>
         </div>
       </div>
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.visible}
+        onClose={() => setToast({ ...toast, visible: false })}
+      />
     </div>
   );
 };
