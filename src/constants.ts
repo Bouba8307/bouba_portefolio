@@ -7,7 +7,7 @@ import {
 } from "./types";
 
 export const CV_URL =
-  "https://drive.google.com/file/d/1yHWU8JZ3p5j6KnkvuZcQqZsZNFiKKHrO/view?usp=drive_link";
+  "https://drive.google.com/file/d/1yHWU8JZ3p5j6KnkvuZcQqZsZNFiKKHrO/view?usp=sharing";
 
 export const EXPERIENCES: Experience[] = [
   {
@@ -33,7 +33,8 @@ export const CONTENT_WORKS: ContentWork[] = [
     id: "c1",
     title: "Affiche Événementielle Orange",
     category: "Graphic Design",
-    imageUrl: "https://giphy.com/gifs/PIMPTAMARQUE-coeur-clavier-travailler-mGut2TpRLC4mvzlwVv",
+    imageUrl:
+      "https://giphy.com/gifs/PIMPTAMARQUE-coeur-clavier-travailler-mGut2TpRLC4mvzlwVv",
     description: "Conception d'une affiche pour un événement digital.",
   },
   {
