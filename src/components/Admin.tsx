@@ -39,6 +39,8 @@ import {
   Loader2,
   Link2,
   User,
+  Globe,
+  Image as ImageIcon,
 } from "lucide-react";
 import { uploadFileToFirebase } from "../services/storage";
 import { handleFirestoreError, OperationType } from "../services/errorHandling";
@@ -61,10 +63,12 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
     name: "BT.",
     profileImageUrl: "",
     bio: "",
+    faviconUrl: "",
   });
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadingProfile, setUploadingProfile] = useState(false);
+  const [uploadingFavicon, setUploadingFavicon] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [imageUrl, setImageUrl] = useState<string>("");
   const [previewUrl, setPreviewUrl] = useState<string>("");
@@ -80,6 +84,18 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
   ) => {
     setToast({ message, type, visible: true });
   };
+
+  useEffect(() => {
+    if (settings.faviconUrl) {
+      const link: HTMLLinkElement =
+        document.querySelector("link[rel*='icon']") ||
+        document.createElement("link");
+      link.type = "image/x-icon";
+      link.rel = "shortcut icon";
+      link.href = getDirectImageUrl(settings.faviconUrl);
+      document.getElementsByTagName("head")[0].appendChild(link);
+    }
+  }, [settings.faviconUrl]);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -288,6 +304,26 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
     }
   };
 
+  const handleFaviconUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingFavicon(true);
+    try {
+      const url = await uploadFileToFirebase(file);
+      console.log("Favicon uploaded to Firebase Storage:", url);
+      setSettings({ ...settings, faviconUrl: url });
+      showToast("Favicon mis à jour");
+    } catch (e: any) {
+      console.error("Favicon upload error:", e);
+      showToast("Erreur lors du téléchargement: " + e.message, "error");
+    } finally {
+      setUploadingFavicon(false);
+    }
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -369,6 +405,13 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
         <div className="flex justify-between items-center mb-12">
           <h1 className="text-4xl font-display font-medium">Dashboard Admin</h1>
           <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              onClick={() => window.open("/", "_blank")}
+              className="flex items-center gap-2 border-white/10 text-white/60 hover:bg-white/5"
+            >
+              <Globe size={18} /> Voir le site
+            </Button>
             <Button
               variant="outline"
               onClick={seedDatabase}
@@ -553,6 +596,62 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                               )}
                             </label>
                           </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-mono text-white/40 uppercase mb-2">
+                      Favicon du site (.ico, .png)
+                    </label>
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-lg overflow-hidden border border-white/10 bg-white/5 flex items-center justify-center">
+                        {settings.faviconUrl ? (
+                          <img
+                            src={getDirectImageUrl(settings.faviconUrl)}
+                            alt="Favicon"
+                            className="w-8 h-8 object-contain"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <ImageIcon size={20} className="text-white/20" />
+                        )}
+                      </div>
+                      <div className="flex-1 space-y-2">
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            name="faviconUrl"
+                            value={settings.faviconUrl}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                faviconUrl: e.target.value,
+                              })
+                            }
+                            className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm focus:border-brand-orange outline-none transition-colors"
+                            placeholder="URL du favicon"
+                          />
+                          <label
+                            className={`cursor-pointer flex items-center justify-center w-10 h-10 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 transition-colors`}
+                          >
+                            <input
+                              type="file"
+                              className="hidden"
+                              accept="image/*"
+                              onChange={handleFaviconUpload}
+                              disabled={uploadingFavicon}
+                            />
+                            {uploadingFavicon ? (
+                              <Loader2
+                                size={18}
+                                className="animate-spin text-brand-orange"
+                              />
+                            ) : (
+                              <Upload size={18} />
+                            )}
+                          </label>
                         </div>
                       </div>
                     </div>

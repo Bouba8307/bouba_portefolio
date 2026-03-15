@@ -17,6 +17,7 @@ export interface Settings {
   name: string;
   profileImageUrl: string;
   bio?: string;
+  faviconUrl?: string;
 }
 
 export interface Education {
