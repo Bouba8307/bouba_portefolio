@@ -38,15 +38,20 @@ export class ErrorBoundary extends React.Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       let errorMessage = "Une erreur inattendue s'est produite.";
-      let isFirestoreError = false;
+      let isDatabaseError = false;
 
       try {
         if (this.state.error?.message) {
           const parsed = JSON.parse(this.state.error.message);
           if (parsed.authInfo && parsed.operationType) {
-            isFirestoreError = true;
+            isDatabaseError = true;
             errorMessage = `Erreur de base de données (${parsed.operationType}) sur ${parsed.path || "inconnu"}.`;
-            if (parsed.error.includes("permission-denied")) {
+            const err = String(parsed.error).toLowerCase();
+            if (
+              err.includes("permission-denied") ||
+              err.includes("row-level security") ||
+              err.includes("42501")
+            ) {
               errorMessage =
                 "Accès refusé. Vous n'avez pas les permissions nécessaires pour cette action.";
             }
@@ -73,7 +78,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
               </p>
             </div>
 
-            {isFirestoreError && (
+            {isDatabaseError && (
               <div className="bg-white/5 p-4 rounded-xl text-left">
                 <p className="text-[10px] font-mono uppercase text-white/40 mb-1">
                   Détails techniques

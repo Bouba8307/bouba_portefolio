@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { ExternalLink, ArrowRight, Github, Figma } from "lucide-react";
 import { Project, Education, Experience, ContentWork } from "../types";
@@ -10,6 +10,21 @@ export const ContentCard: React.FC<{
   index: number;
   onClick?: () => void;
 }> = ({ work, index, onClick }) => {
+  const [imageFailed, setImageFailed] = useState(false);
+  const imageSrcRaw = getDirectImageUrl(work.imageUrl);
+  const imageSrc =
+    imageSrcRaw &&
+    !(
+      imageSrcRaw.includes("picsum.photos") ||
+      imageSrcRaw.includes("giphy.com")
+    )
+      ? imageSrcRaw
+      : "";
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [work.imageUrl]);
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.9 }}
@@ -20,20 +35,19 @@ export const ContentCard: React.FC<{
       onClick={onClick}
       className="group relative glass rounded-2xl overflow-hidden aspect-[3/4] cursor-pointer"
     >
-      <img
-        src={
-          getDirectImageUrl(work.imageUrl) ||
-          "https://picsum.photos/seed/placeholder/1200/1600"
-        }
-        alt={work.title}
-        className="w-full h-full object-cover transition-all duration-700 group-hover:scale-110"
-        onError={(e) => {
-          console.error("Image load error for:", work.imageUrl);
-          (e.target as HTMLImageElement).src =
-            "https://picsum.photos/seed/error/1200/1600";
-        }}
-        referrerPolicy="no-referrer"
-      />
+      {imageSrc && !imageFailed ? (
+        <img
+          src={imageSrc}
+          alt={work.title}
+          className="w-full h-full object-cover transition-all duration-700 group-hover:scale-110"
+          onError={() => setImageFailed(true)}
+          referrerPolicy="no-referrer"
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center bg-black/20 text-white/40 font-mono text-sm">
+          Image non charger
+        </div>
+      )}
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex flex-col justify-end p-6">
         <span className="text-brand-orange font-mono text-[10px] uppercase tracking-widest mb-2">
           {work.category}
@@ -63,6 +77,21 @@ export const ProjectCard: React.FC<{
   index: number;
   onClick?: () => void;
 }> = ({ project, index, onClick }) => {
+  const [imageFailed, setImageFailed] = useState(false);
+  const imageSrcRaw = getDirectImageUrl(project.imageUrl);
+  const imageSrc =
+    imageSrcRaw &&
+    !(
+      imageSrcRaw.includes("picsum.photos") ||
+      imageSrcRaw.includes("giphy.com")
+    )
+      ? imageSrcRaw
+      : "";
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [project.imageUrl]);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 50 }}
@@ -173,20 +202,19 @@ export const ProjectCard: React.FC<{
           transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
           className="w-full h-full"
         >
-          <img
-            src={
-              getDirectImageUrl(project.imageUrl) ||
-              "https://picsum.photos/seed/placeholder/1600/1200"
-            }
-            alt={project.title}
-            className="w-full h-full object-cover transition-all duration-700 group-hover:scale-105"
-            onError={(e) => {
-              console.error("Image load error for:", project.imageUrl);
-              (e.target as HTMLImageElement).src =
-                "https://picsum.photos/seed/error/1600/1200";
-            }}
-            referrerPolicy="no-referrer"
-          />
+          {imageSrc && !imageFailed ? (
+            <img
+              src={imageSrc}
+              alt={project.title}
+              className="w-full h-full object-cover transition-all duration-700 group-hover:scale-105"
+              onError={() => setImageFailed(true)}
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-black/20 text-white/40 font-mono text-sm">
+              Image non charger
+            </div>
+          )}
           <div className="absolute inset-0 bg-black/40 group-hover:bg-black/0 transition-colors duration-700" />
         </motion.div>
       </div>

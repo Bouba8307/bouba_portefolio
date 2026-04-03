@@ -45,13 +45,13 @@ import {
   ExperienceItem,
   ContentCard,
 } from "./components/Cards";
-import { collection, getDocs, addDoc } from "firebase/firestore";
+import type { User as AuthUser } from "@supabase/supabase-js";
+import { supabase, isSupabaseConfigured } from "./services/supabase";
 import {
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  signOut,
-} from "firebase/auth";
-import { db, auth } from "./services/firebase";
+  fetchAllRows,
+  fetchLatestSettings,
+  insertRow,
+} from "./services/supabaseDb";
 import {
   Project,
   ContentWork,
@@ -61,7 +61,7 @@ import {
 } from "./types";
 import { AdminDashboard } from "./components/Admin";
 import { getDirectImageUrl, getDirectDownloadUrl } from "./utils";
-import { handleFirestoreError, OperationType } from "./services/errorHandling";
+import { handleDatabaseError, OperationType } from "./services/errorHandling";
 
 const Login = ({
   onLogin,
@@ -149,46 +149,31 @@ const Portfolio = () => {
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!isSupabaseConfigured) {
+        setLoading(false);
+        return;
+      }
       try {
-        // Fetch Projects
         const projectsPath = "projects";
         try {
-          const projectsSnapshot = await getDocs(collection(db, projectsPath));
-          if (!projectsSnapshot.empty) {
-            setProjects(
-              projectsSnapshot.docs.map(
-                (doc) => ({ id: doc.id, ...doc.data() }) as Project,
-              ),
-            );
-          }
+          const rows = await fetchAllRows<Project>("projects");
+          if (rows.length > 0) setProjects(rows);
         } catch (error) {
-          handleFirestoreError(error, OperationType.GET, projectsPath);
+          await handleDatabaseError(error, OperationType.GET, projectsPath);
         }
 
-        // Fetch Content Works
         const contentPath = "content_works";
         try {
-          const contentSnapshot = await getDocs(collection(db, contentPath));
-          if (!contentSnapshot.empty) {
-            setContentWorks(
-              contentSnapshot.docs.map(
-                (doc) => ({ id: doc.id, ...doc.data() }) as ContentWork,
-              ),
-            );
-          }
+          const rows = await fetchAllRows<ContentWork>("content_works");
+          if (rows.length > 0) setContentWorks(rows);
         } catch (error) {
-          handleFirestoreError(error, OperationType.GET, contentPath);
+          await handleDatabaseError(error, OperationType.GET, contentPath);
         }
 
-        // Fetch Experiences
         const expPath = "experiences";
         try {
-          const expSnapshot = await getDocs(collection(db, expPath));
-          if (!expSnapshot.empty) {
-            const data = expSnapshot.docs.map(
-              (doc) => ({ id: doc.id, ...doc.data() }) as Experience,
-            );
-            // Sort by year (most recent first)
+          const data = await fetchAllRows<Experience>("experiences");
+          if (data.length > 0) {
             data.sort((a, b) => {
               const getYear = (p: string) => {
                 if (
@@ -204,18 +189,13 @@ const Portfolio = () => {
             setExperiences(data);
           }
         } catch (error) {
-          handleFirestoreError(error, OperationType.GET, expPath);
+          await handleDatabaseError(error, OperationType.GET, expPath);
         }
 
-        // Fetch Education
         const eduPath = "education";
         try {
-          const eduSnapshot = await getDocs(collection(db, eduPath));
-          if (!eduSnapshot.empty) {
-            const data = eduSnapshot.docs.map(
-              (doc) => ({ id: doc.id, ...doc.data() }) as Education,
-            );
-            // Sort by year (most recent first)
+          const data = await fetchAllRows<Education>("education");
+          if (data.length > 0) {
             data.sort((a, b) => {
               const getYear = (p: string) => {
                 if (
@@ -231,45 +211,34 @@ const Portfolio = () => {
             setEducation(data);
           }
         } catch (error) {
-          handleFirestoreError(error, OperationType.GET, eduPath);
+          await handleDatabaseError(error, OperationType.GET, eduPath);
         }
 
-        // Fetch Skills
         const skillsPath = "skills";
         try {
-          const skillsSnapshot = await getDocs(collection(db, skillsPath));
-          if (!skillsSnapshot.empty) {
-            setSkills(
-              skillsSnapshot.docs.map(
-                (doc) => ({ id: doc.id, ...doc.data() }) as any,
-              ),
-            );
-          }
+          const rows = await fetchAllRows<SkillGroup & { id: string }>(
+            "skills",
+          );
+          if (rows.length > 0) setSkills(rows);
         } catch (error) {
-          handleFirestoreError(error, OperationType.GET, skillsPath);
+          await handleDatabaseError(error, OperationType.GET, skillsPath);
         }
 
-        // Fetch Settings
         const settingsPath = "settings";
         try {
-          const settingsSnapshot = await getDocs(collection(db, settingsPath));
-          if (!settingsSnapshot.empty) {
-            setSettings({
-              id: settingsSnapshot.docs[0].id,
-              ...settingsSnapshot.docs[0].data(),
-            });
-          }
+          const row = await fetchLatestSettings();
+          if (row) setSettings(row);
         } catch (error) {
-          handleFirestoreError(error, OperationType.GET, settingsPath);
+          await handleDatabaseError(error, OperationType.GET, settingsPath);
         }
       } catch (error) {
-        console.error("Error fetching from Firebase:", error);
+        console.error("Error fetching from Supabase:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
+    void fetchData();
   }, []);
 
   useEffect(() => {
@@ -356,12 +325,28 @@ const Portfolio = () => {
           {selectedItem && (
             <div className="flex flex-col lg:flex-row bg-black/40 backdrop-blur-3xl overflow-hidden h-full max-h-[90vh] md:max-h-[85vh]">
               <div className="lg:w-2/3 h-[40vh] md:h-[50vh] lg:h-auto relative overflow-hidden bg-black/20 flex items-center justify-center">
-                <img
-                  src={getDirectImageUrl(selectedItem.imageUrl)}
-                  alt={selectedItem.title}
-                  className="w-full h-full object-contain p-4"
-                  referrerPolicy="no-referrer"
-                />
+                {(() => {
+                  const src = getDirectImageUrl(selectedItem.imageUrl);
+                  const isFictif =
+                    src.includes("picsum.photos") || src.includes("giphy.com");
+
+                  if (src && !isFictif) {
+                    return (
+                      <img
+                        src={src}
+                        alt={selectedItem.title}
+                        className="w-full h-full object-contain p-4"
+                        referrerPolicy="no-referrer"
+                      />
+                    );
+                  }
+
+                  return (
+                    <div className="w-full h-full flex items-center justify-center text-white/40 font-mono text-sm">
+                      Image non charger
+                    </div>
+                  );
+                })()}
               </div>
               <div className="lg:w-1/3 p-6 md:p-12 flex flex-col justify-center gap-4 md:gap-6 overflow-y-auto bg-black/60">
                 <div>
@@ -958,8 +943,13 @@ const Contact = () => {
     e.preventDefault();
     setLoading(true);
     const path = "messages";
+    if (!isSupabaseConfigured) {
+      setLoading(false);
+      alert("Supabase n’est pas configuré : impossible d’envoyer le message.");
+      return;
+    }
     try {
-      await addDoc(collection(db, path), {
+      await insertRow("messages", {
         ...formData,
         createdAt: new Date().toISOString(),
         read: false,
@@ -968,7 +958,7 @@ const Contact = () => {
       setFormData({ name: "", email: "", message: "" });
       setTimeout(() => setSuccess(false), 5000);
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, path);
+      await handleDatabaseError(error, OperationType.CREATE, path);
     } finally {
       setLoading(false);
     }
@@ -1172,31 +1162,33 @@ const CustomCursor = () => {
 };
 
 export default function App() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
+    void supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
       setAuthLoading(false);
     });
-    return () => unsubscribe();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => subscription.unsubscribe();
   }, []);
 
   const handleLogin = async (email: string, pass: string) => {
-    try {
-      await signInWithEmailAndPassword(auth, email, pass);
-    } catch (error: any) {
-      alert("Erreur de connexion : " + error.message);
-    }
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password: pass,
+    });
+    if (error) alert("Erreur de connexion : " + error.message);
   };
 
   const handleLogout = async () => {
-    try {
-      await signOut(auth);
-    } catch (error: any) {
-      alert("Erreur de déconnexion : " + error.message);
-    }
+    const { error } = await supabase.auth.signOut();
+    if (error) alert("Erreur de déconnexion : " + error.message);
   };
 
   if (authLoading) {

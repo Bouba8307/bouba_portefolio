@@ -1,16 +1,12 @@
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { storage } from "./firebase";
+import { uploadFile } from "./supabase";
 import { handleStorageError } from "./errorHandling";
 
-export const uploadFileToFirebase = async (file: File): Promise<string> => {
-  const path = `portfolio/${Date.now()}_${file.name}`;
+export const uploadPortfolioFile = async (file: File): Promise<string> => {
+  const path = `${Date.now()}_${file.name}`;
   try {
-    const storageRef = ref(storage, path);
-    const snapshot = await uploadBytes(storageRef, file);
-    const downloadURL = await getDownloadURL(snapshot.ref);
-    return downloadURL;
+    return await uploadFile(file);
   } catch (error) {
-    handleStorageError(error, path);
+    await handleStorageError(error, path);
     throw error;
   }
 };

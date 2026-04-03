@@ -1,21 +1,19 @@
 import React, { useState, useEffect } from "react";
-import { db } from "../services/firebase";
 import {
-  collection,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  doc,
-  getDocs,
-  query,
-  where,
-} from "firebase/firestore";
+  fetchAllRows,
+  fetchLatestSettings,
+  insertRow,
+  updateRowDataMerge,
+  deleteRow,
+  rowExistsByJsonField,
+  type JsonTable,
+} from "../services/supabaseDb";
+import { isSupabaseConfigured } from "../services/supabase";
 import {
   Project,
   ContentWork,
   Experience,
   Education,
-  SkillGroup,
 } from "../types";
 import {
   PROJECTS,
@@ -42,8 +40,8 @@ import {
   Globe,
   Image as ImageIcon,
 } from "lucide-react";
-import { uploadFileToFirebase } from "../services/storage";
-import { handleFirestoreError, OperationType } from "../services/errorHandling";
+import { uploadPortfolioFile } from "../services/storage";
+import { handleDatabaseError, OperationType } from "../services/errorHandling";
 
 export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
   const [activeTab, setActiveTab] = useState<
@@ -98,52 +96,53 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
   }, [settings.faviconUrl]);
 
   const fetchAll = async () => {
+    if (!isSupabaseConfigured) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const pPath = "projects";
       try {
-        const pSnap = await getDocs(collection(db, pPath));
-        setProjects(
-          pSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Project),
-        );
+        setProjects(await fetchAllRows<Project>("projects"));
       } catch (error) {
-        handleFirestoreError(error, OperationType.GET, pPath);
+        await handleDatabaseError(error, OperationType.GET, pPath);
       }
 
       const cPath = "content_works";
       try {
-        const cSnap = await getDocs(collection(db, cPath));
-        setContentWorks(
-          cSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as ContentWork),
-        );
+        setContentWorks(await fetchAllRows<ContentWork>("content_works"));
       } catch (error) {
-        handleFirestoreError(error, OperationType.GET, cPath);
+        await handleDatabaseError(error, OperationType.GET, cPath);
       }
 
       const mPath = "messages";
       try {
-        const mSnap = await getDocs(collection(db, mPath));
+        const raw = await fetchAllRows<{
+          id: string;
+          name: string;
+          email: string;
+          message: string;
+          createdAt: string;
+          read: boolean;
+        }>("messages");
         setMessages(
-          mSnap.docs
-            .map((d) => ({ id: d.id, ...d.data() }) as any)
-            .sort(
-              (a, b) =>
-                new Date(b.createdAt).getTime() -
-                new Date(a.createdAt).getTime(),
-            ),
+          raw.sort(
+            (a, b) =>
+              new Date(b.createdAt).getTime() -
+              new Date(a.createdAt).getTime(),
+          ),
         );
       } catch (error) {
-        handleFirestoreError(error, OperationType.GET, mPath);
+        await handleDatabaseError(error, OperationType.GET, mPath);
       }
 
       const sPath = "settings";
       try {
-        const sSnap = await getDocs(collection(db, sPath));
-        if (!sSnap.empty) {
-          setSettings({ id: sSnap.docs[0].id, ...sSnap.docs[0].data() });
-        }
+        const row = await fetchLatestSettings();
+        if (row) setSettings(row);
       } catch (error) {
-        handleFirestoreError(error, OperationType.GET, sPath);
+        await handleDatabaseError(error, OperationType.GET, sPath);
       }
 
       const getYear = (p: string) => {
@@ -158,26 +157,20 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
 
       const expPath = "experiences";
       try {
-        const expSnap = await getDocs(collection(db, expPath));
-        const data = expSnap.docs.map(
-          (d) => ({ id: d.id, ...d.data() }) as Experience,
-        );
+        const data = await fetchAllRows<Experience>("experiences");
         data.sort((a, b) => getYear(b.period) - getYear(a.period));
         setExperiences(data);
       } catch (error) {
-        handleFirestoreError(error, OperationType.GET, expPath);
+        await handleDatabaseError(error, OperationType.GET, expPath);
       }
 
       const eduPath = "education";
       try {
-        const eduSnap = await getDocs(collection(db, eduPath));
-        const data = eduSnap.docs.map(
-          (d) => ({ id: d.id, ...d.data() }) as Education,
-        );
+        const data = await fetchAllRows<Education>("education");
         data.sort((a, b) => getYear(b.period) - getYear(a.period));
         setEducation(data);
       } catch (error) {
-        handleFirestoreError(error, OperationType.GET, eduPath);
+        await handleDatabaseError(error, OperationType.GET, eduPath);
       }
     } catch (e) {
       console.error(e);
@@ -187,16 +180,23 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
   };
 
   const seedDatabase = async () => {
+    if (!isSupabaseConfigured) {
+      showToast("Configurez Supabase dans .env", "error");
+      return;
+    }
     if (
       !window.confirm(
-        "Voulez-vous importer TOUTES les données initiales (Projets, Créations, Expériences, Formations, Compétences) dans Firebase ?",
+        "Voulez-vous importer TOUTES les données initiales (Projets, Créations, Expériences, Formations, Compétences) dans Supabase ?",
       )
     )
       return;
 
     setLoading(true);
     try {
-      const collections = [
+      const collections: {
+        name: JsonTable;
+        data: readonly unknown[];
+      }[] = [
         { name: "projects", data: PROJECTS },
         { name: "content_works", data: CONTENT_WORKS },
         { name: "experiences", data: EXPERIENCES },
@@ -206,39 +206,43 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
 
       for (const col of collections) {
         for (const item of col.data) {
-          const { id, ...data } = item as any;
+          const { id: _id, ...data } = item as Record<string, unknown> & {
+            id?: string;
+          };
 
-          // Check for duplicates based on title (or name for skills)
-          const fieldToMatch = col.name === "skills" ? "title" : "title"; // Most have title
-          const valueToMatch = data.title || data.name || data.institution;
+          const valueToMatch =
+            (data.title as string) ||
+            (data.name as string) ||
+            (data.institution as string);
+          const matchField = data.title
+            ? "title"
+            : data.name
+              ? "name"
+              : "institution";
 
-          if (valueToMatch) {
-            const q = query(
-              collection(db, col.name),
-              where(
-                data.title ? "title" : data.name ? "name" : "institution",
-                "==",
-                valueToMatch,
-              ),
-            );
+          if (valueToMatch && matchField) {
             try {
-              const existing = await getDocs(q);
-              if (!existing.empty) continue; // Skip if already exists
+              const exists = await rowExistsByJsonField(
+                col.name,
+                matchField,
+                String(valueToMatch),
+              );
+              if (exists) continue;
             } catch (error) {
-              handleFirestoreError(error, OperationType.GET, col.name);
+              await handleDatabaseError(error, OperationType.GET, col.name);
             }
           }
 
           try {
-            await addDoc(collection(db, col.name), data);
+            await insertRow(col.name, data as Record<string, unknown>);
           } catch (error) {
-            handleFirestoreError(error, OperationType.CREATE, col.name);
+            await handleDatabaseError(error, OperationType.CREATE, col.name);
           }
         }
       }
 
       alert(
-        "Toutes les données fictives ont été enregistrées dans Firebase avec succès !",
+        "Toutes les données fictives ont été enregistrées dans Supabase avec succès !",
       );
       showToast("Données importées avec succès");
       fetchAll();
@@ -257,10 +261,10 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
   const handleDelete = async (id: string, type: string) => {
     if (window.confirm("Supprimer cet élément ?")) {
       try {
-        await deleteDoc(doc(db, type, id));
-        fetchAll();
+        await deleteRow(type as JsonTable, id);
+        void fetchAll();
       } catch (error) {
-        handleFirestoreError(error, OperationType.DELETE, type);
+        await handleDatabaseError(error, OperationType.DELETE, type);
       }
     }
   };
@@ -271,8 +275,7 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
 
     setUploading(true);
     try {
-      const publicUrl = await uploadFileToFirebase(file);
-      console.log("File uploaded to Firebase Storage:", publicUrl);
+      const publicUrl = await uploadPortfolioFile(file);
       setImageUrl(publicUrl);
       setPreviewUrl(publicUrl);
       showToast("Image téléchargée avec succès");
@@ -292,8 +295,7 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
 
     setUploadingProfile(true);
     try {
-      const url = await uploadFileToFirebase(file);
-      console.log("Profile image uploaded to Firebase Storage:", url);
+      const url = await uploadPortfolioFile(file);
       setSettings({ ...settings, profileImageUrl: url });
       showToast("Photo de profil mise à jour");
     } catch (e: any) {
@@ -312,8 +314,7 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
 
     setUploadingFavicon(true);
     try {
-      const url = await uploadFileToFirebase(file);
-      console.log("Favicon uploaded to Firebase Storage:", url);
+      const url = await uploadPortfolioFile(file);
       setSettings({ ...settings, faviconUrl: url });
       showToast("Favicon mis à jour");
     } catch (e: any) {
@@ -349,13 +350,17 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
         const path = "settings";
         try {
           if (settings.id) {
-            await updateDoc(doc(db, path, settings.id), data);
+            await updateRowDataMerge(
+              "settings",
+              settings.id,
+              data as Record<string, unknown>,
+            );
           } else {
-            await addDoc(collection(db, path), data);
+            await insertRow("settings", data as Record<string, unknown>);
           }
           showToast("Paramètres mis à jour !");
         } catch (error) {
-          handleFirestoreError(error, OperationType.WRITE, path);
+          await handleDatabaseError(error, OperationType.WRITE, path);
         }
       } else if (editingItem?.id) {
         const path =
@@ -367,10 +372,14 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                 ? "experiences"
                 : "education";
         try {
-          await updateDoc(doc(db, path, editingItem.id), data);
+          await updateRowDataMerge(
+            path as JsonTable,
+            editingItem.id,
+            data as Record<string, unknown>,
+          );
           showToast("Modifié avec succès !");
         } catch (error) {
-          handleFirestoreError(error, OperationType.UPDATE, path);
+          await handleDatabaseError(error, OperationType.UPDATE, path);
         }
       } else {
         const path =
@@ -382,18 +391,17 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                 ? "experiences"
                 : "education";
         try {
-          await addDoc(collection(db, path), data);
+          await insertRow(path as JsonTable, data as Record<string, unknown>);
           showToast("Ajouté avec succès !");
         } catch (error) {
-          handleFirestoreError(error, OperationType.CREATE, path);
+          await handleDatabaseError(error, OperationType.CREATE, path);
         }
       }
 
       if (activeTab !== "settings") setEditingItem(null);
-      fetchAll();
+      void fetchAll();
     } catch (e) {
       console.error(e);
-      // Error is already handled by handleFirestoreError if it was a firestore error
     } finally {
       setLoading(false);
     }
@@ -703,12 +711,14 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                               onClick={async () => {
                                 const path = "messages";
                                 try {
-                                  await updateDoc(doc(db, path, msg.id), {
-                                    read: true,
-                                  });
-                                  fetchAll();
+                                  await updateRowDataMerge(
+                                    "messages",
+                                    msg.id,
+                                    { read: true },
+                                  );
+                                  void fetchAll();
                                 } catch (error) {
-                                  handleFirestoreError(
+                                  await handleDatabaseError(
                                     error,
                                     OperationType.UPDATE,
                                     path,
@@ -725,10 +735,10 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                               if (window.confirm("Supprimer ce message ?")) {
                                 const path = "messages";
                                 try {
-                                  await deleteDoc(doc(db, path, msg.id));
-                                  fetchAll();
+                                  await deleteRow("messages", msg.id);
+                                  void fetchAll();
                                 } catch (error) {
-                                  handleFirestoreError(
+                                  await handleDatabaseError(
                                     error,
                                     OperationType.DELETE,
                                     path,

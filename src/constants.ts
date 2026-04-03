@@ -33,29 +33,28 @@ export const CONTENT_WORKS: ContentWork[] = [
     id: "c1",
     title: "Affiche Événementielle Orange",
     category: "Graphic Design",
-    imageUrl:
-      "https://giphy.com/gifs/PIMPTAMARQUE-coeur-clavier-travailler-mGut2TpRLC4mvzlwVv",
+    imageUrl: "",
     description: "Conception d'une affiche pour un événement digital.",
   },
   {
     id: "c2",
     title: "Identité Visuelle KAMS",
     category: "Branding",
-    imageUrl: "https://picsum.photos/seed/branding1/800/1000",
+    imageUrl: "",
     description: "Charte graphique et supports de communication.",
   },
   {
     id: "c3",
     title: "UI Design Mobile App",
     category: "UI/UX",
-    imageUrl: "https://picsum.photos/seed/ui1/800/1000",
+    imageUrl: "",
     description: "Maquettes haute fidélité pour application mobile.",
   },
   {
     id: "c4",
     title: "Flyer Promotionnel",
     category: "Print",
-    imageUrl: "https://picsum.photos/seed/flyer1/800/1000",
+    imageUrl: "",
     description: "Design de supports de communication print.",
   },
 ];
@@ -73,7 +72,7 @@ export const PROJECTS: Project[] = [
       "Utilisation de Flutter pour le front-end et Firebase pour le back-end et la base de données.",
     stack: ["Flutter", "Firebase", "Dart"],
     results: "Projet personnel réalisé en Octobre 2024.",
-    imageUrl: "https://picsum.photos/seed/ikaso/1200/800",
+    imageUrl: "",
   },
   {
     id: "2",
@@ -87,7 +86,7 @@ export const PROJECTS: Project[] = [
       "Architecture Angular (front-end), Spring Boot (back-end) et MySQL (base de données).",
     stack: ["Angular", "Spring Boot", "MySQL", "Java"],
     results: "Développé en Juin 2024 @ Orange Digital Kalanso.",
-    imageUrl: "https://picsum.photos/seed/gestevent/1200/800",
+    imageUrl: "",
   },
   {
     id: "3",
@@ -101,7 +100,7 @@ export const PROJECTS: Project[] = [
       "Conception sous Figma avec focus sur l'ergonomie et le parcours utilisateur.",
     stack: ["Figma", "Prototypage", "UX Research"],
     results: "Réalisé en Juin 2024.",
-    imageUrl: "https://picsum.photos/seed/figma-design/1200/800",
+    imageUrl: "",
   },
 ];
 

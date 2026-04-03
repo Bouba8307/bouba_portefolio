@@ -1,12 +1,8 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  readonly VITE_FIREBASE_API_KEY: env.VITE_FIREBASE_API_KEY;
-  readonly VITE_FIREBASE_AUTH_DOMAIN: env.VITE_FIREBASE_AUTH_DOMAIN;
-  readonly VITE_FIREBASE_PROJECT_ID: env.VITE_FIREBASE_PROJECT_ID;
-  readonly VITE_FIREBASE_STORAGE_BUCKET: env.VITE_FIREBASE_STORAGE_BUCKET;
-  readonly VITE_FIREBASE_MESSAGING_SENDER_ID: env.VITE_FIREBASE_MESSAGING_SENDER_ID;
-  readonly VITE_FIREBASE_APP_ID: env.VITE_FIREBASE_APP_ID;
+  readonly VITE_SUPABASE_URL: string;
+  readonly VITE_SUPABASE_ANON_KEY: string;
 }
 
 interface ImportMeta {

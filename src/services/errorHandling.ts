@@ -1,15 +1,15 @@
-import { auth } from './firebase';
+import { supabase } from "./supabase";
 
 export enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
+  CREATE = "create",
+  UPDATE = "update",
+  DELETE = "delete",
+  LIST = "list",
+  GET = "get",
+  WRITE = "write",
 }
 
-export interface FirestoreErrorInfo {
+export interface DatabaseErrorInfo {
   error: string;
   operationType: OperationType;
   path: string | null;
@@ -25,44 +25,59 @@ export interface FirestoreErrorInfo {
       email: string | null;
       photoUrl: string | null;
     }[];
-  }
+  };
 }
 
-export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  const errInfo: FirestoreErrorInfo = {
+export async function handleDatabaseError(
+  error: unknown,
+  operationType: OperationType,
+  path: string | null,
+) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = session?.user;
+
+  const errInfo: DatabaseErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
-      tenantId: auth.currentUser?.tenantId,
-      providerInfo: auth.currentUser?.providerData.map(provider => ({
-        providerId: provider.providerId,
-        displayName: provider.displayName,
-        email: provider.email,
-        photoUrl: provider.photoURL
-      })) || []
+      userId: user?.id,
+      email: user?.email,
+      emailVerified: Boolean(user?.email_confirmed_at),
+      isAnonymous: !user?.email,
+      tenantId: undefined,
+      providerInfo: (user?.identities ?? []).map((i) => ({
+        providerId: i.provider,
+        displayName:
+          (user?.user_metadata?.full_name as string | undefined) ?? null,
+        email: user?.email ?? null,
+        photoUrl:
+          (user?.user_metadata?.avatar_url as string | undefined) ?? null,
+      })),
     },
     operationType,
-    path
+    path,
   };
-  
+
   const errorString = JSON.stringify(errInfo);
-  console.error('Firestore Error: ', errorString);
+  console.error("Database Error: ", errorString);
   throw new Error(errorString);
 }
 
-export function handleStorageError(error: unknown, path: string) {
+export async function handleStorageError(error: unknown, path: string) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = session?.user;
   const errInfo = {
     error: error instanceof Error ? error.message : String(error),
-    type: 'storage',
+    type: "storage",
     path,
     authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email
-    }
+      userId: user?.id,
+      email: user?.email,
+    },
   };
-  console.error('Storage Error:', JSON.stringify(errInfo));
+  console.error("Storage Error:", JSON.stringify(errInfo));
   return errInfo;
 }
