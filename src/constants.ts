@@ -7,7 +7,7 @@ import {
 } from "./types";
 
 export const CV_URL =
-  "https://drive.google.com/file/d/1yHWU8JZ3p5j6KnkvuZcQqZsZNFiKKHrO/view?usp=sharing";
+  "https://drive.google.com/file/d/1OeUAoX824Q9pZuxxTlI0u6BpAvO-UAxQ/view?usp=drive_link";
 
 export const EXPERIENCES: Experience[] = [
   {
@@ -31,15 +31,15 @@ export const EXPERIENCES: Experience[] = [
 export const CONTENT_WORKS: ContentWork[] = [
   {
     id: "c1",
-    title: "Affiche Événementielle Orange",
+    title: "Affiche",
     category: "Graphic Design",
     imageUrl: "",
-    description: "Conception d'une affiche pour un événement digital.",
+    description: "Conception d'une affiche pour un événement.",
   },
   {
     id: "c2",
     title: "Identité Visuelle KAMS",
-    category: "Branding",
+    category: "Graphic Design",
     imageUrl: "",
     description: "Charte graphique et supports de communication.",
   },
@@ -48,7 +48,7 @@ export const CONTENT_WORKS: ContentWork[] = [
     title: "UI Design Mobile App",
     category: "UI/UX",
     imageUrl: "",
-    description: "Maquettes haute fidélité pour application mobile.",
+    description: "Maquettes pour un projet d'application mobile.",
   },
   {
     id: "c4",
@@ -65,7 +65,7 @@ export const PROJECTS: Project[] = [
     title: "Ikaso - Réservation d’Hébergement",
     category: "Mobile App",
     description:
-      "Application complète de réservation d’hébergements intégrant un système client, hôte et dashboard.",
+      "Application de réservation d’hébergements intégrant un système client, hôte et dashboard.",
     problem:
       "Difficulté de centraliser les offres d'hébergement et de gérer les réservations en temps réel.",
     solution:
@@ -224,6 +224,26 @@ export const SKILLS: SkillGroup[] = [
       {
         name: "IA Tools",
         icon: "https://www.vectorlogo.zone/logos/google_cloud/google_cloud-icon.svg",
+      },
+      {
+        name: "Supabase",
+        icon: "https://www.vectorlogo.zone/logos/supabase/supabase-icon.svg",
+      },
+      {
+        name: "Firebase",
+        icon: "https://www.vectorlogo.zone/logos/firebase/firebase-icon.svg",
+      },
+      {
+        name: "Postman",
+        icon: "https://www.vectorlogo.zone/logos/getpostman/getpostman-icon.svg",
+      },
+      {
+        name: "Vercel",
+        icon: "https://www.vectorlogo.zone/logos/vercel/vercel-icon.svg",
+      },
+      {
+        name: "Cursor",
+        icon: "https://www.vectorlogo.zone/logos/cursor/cursor-icon.svg",
       },
       {
         name: "Agile",
