@@ -72,153 +72,328 @@ export const ContentCard: React.FC<{
   );
 };
 
+const projectImageSrc = (imageUrl: string) => {
+  const raw = getDirectImageUrl(imageUrl);
+  if (
+    !raw ||
+    raw.includes("picsum.photos") ||
+    raw.includes("giphy.com")
+  ) {
+    return "";
+  }
+  return raw;
+};
+
+const ProjectMedia: React.FC<{
+  imageSrc: string;
+  imageFailed: boolean;
+  onImageError: () => void;
+  className?: string;
+  imgClassName?: string;
+}> = ({ imageSrc, imageFailed, onImageError, className = "", imgClassName = "" }) => (
+  <div className={`relative overflow-hidden bg-black/30 ${className}`}>
+    {imageSrc && !imageFailed ? (
+      <img
+        src={imageSrc}
+        alt=""
+        className={`h-full w-full object-cover ${imgClassName}`}
+        onError={onImageError}
+        referrerPolicy="no-referrer"
+      />
+    ) : (
+      <div className="flex h-full min-h-[12rem] w-full items-center justify-center font-mono text-sm text-white/40">
+        Image non charger
+      </div>
+    )}
+  </div>
+);
+
+const ProjectActions: React.FC<{
+  project: Project;
+  onClick?: () => void;
+  compact?: boolean;
+}> = ({ project, onClick, compact }) => (
+  <div
+    className={`flex flex-wrap items-center gap-3 ${compact ? "mt-5" : "mt-8 gap-4 md:gap-6"}`}
+  >
+    {project.link ? (
+      <motion.a
+        whileHover={{ x: 4 }}
+        href={project.link}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="group/btn inline-flex items-center gap-2 font-medium text-white md:gap-3"
+      >
+        <span className={compact ? "text-sm" : ""}>Voir le projet</span>
+        <div
+          className={`flex items-center justify-center rounded-full border border-white/20 transition-all duration-300 group-hover/btn:border-brand-orange group-hover/btn:bg-brand-orange ${compact ? "h-9 w-9" : "h-10 w-10"}`}
+        >
+          <ExternalLink size={compact ? 15 : 17} />
+        </div>
+      </motion.a>
+    ) : (
+      <motion.button
+        type="button"
+        whileHover={{ x: 4 }}
+        onClick={onClick}
+        className="group/btn inline-flex items-center gap-2 font-medium text-white md:gap-3"
+      >
+        <span className={compact ? "text-sm" : ""}>Détails</span>
+        <div
+          className={`flex items-center justify-center rounded-full border border-white/20 transition-all duration-300 group-hover/btn:border-brand-orange group-hover/btn:bg-brand-orange ${compact ? "h-9 w-9" : "h-10 w-10"}`}
+        >
+          <ArrowRight size={compact ? 16 : 18} />
+        </div>
+      </motion.button>
+    )}
+    <div className="flex items-center gap-2">
+      {project.githubUrl && (
+        <a
+          href={project.githubUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`flex items-center justify-center rounded-full border border-white/10 text-white/60 transition-all hover:border-white/30 hover:text-white ${compact ? "h-9 w-9" : "h-10 w-10"}`}
+          title="GitHub"
+        >
+          <Github size={compact ? 16 : 18} />
+        </a>
+      )}
+      {project.figmaUrl && (
+        <a
+          href={project.figmaUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`flex items-center justify-center rounded-full border border-white/10 text-white/60 transition-all hover:border-white/30 hover:text-white ${compact ? "h-9 w-9" : "h-10 w-10"}`}
+          title="Figma"
+        >
+          <Figma size={compact ? 16 : 18} />
+        </a>
+      )}
+    </div>
+  </div>
+);
+
 export const ProjectCard: React.FC<{
   project: Project;
   index: number;
   onClick?: () => void;
-}> = ({ project, index, onClick }) => {
+  /** "featured" = pleine largeur split image | contenu ; "tile" = carte compacte grille */
+  layout?: "featured" | "tile";
+}> = ({ project, index, onClick, layout = "featured" }) => {
   const [imageFailed, setImageFailed] = useState(false);
-  const imageSrcRaw = getDirectImageUrl(project.imageUrl);
-  const imageSrc =
-    imageSrcRaw &&
-    !(
-      imageSrcRaw.includes("picsum.photos") ||
-      imageSrcRaw.includes("giphy.com")
-    )
-      ? imageSrcRaw
-      : "";
+  const imageSrc = projectImageSrc(project.imageUrl);
 
   useEffect(() => {
     setImageFailed(false);
   }, [project.imageUrl]);
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 50 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ delay: index * 0.1, duration: 0.8 }}
-      className="group relative grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center mb-16 lg:mb-32 last:mb-0"
-    >
-      <div
-        className={`order-2 ${index % 2 === 0 ? "lg:order-1" : "lg:order-2"}`}
+  const caseRef = String(index + 1).padStart(2, "0");
+  const mediaHandlers = {
+    onImageError: () => setImageFailed(true),
+    imageSrc,
+    imageFailed,
+  };
+
+  if (layout === "tile") {
+    return (
+      <motion.article
+        initial={{ opacity: 0, y: 28 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-40px" }}
+        transition={{
+          duration: 0.5,
+          delay: index * 0.05,
+          ease: [0.22, 1, 0.36, 1],
+        }}
+        className="group flex h-full flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] shadow-lg shadow-black/20 transition-all duration-300 hover:border-brand-orange/30 hover:shadow-brand-orange/5"
       >
-        <div className="flex flex-col gap-6">
-          <div className="flex items-center gap-4">
-            <span className="text-brand-orange font-mono text-xs uppercase tracking-widest">
-              {project.category}
+        <div
+          onClick={onClick}
+          onKeyDown={(e) => {
+            if (!onClick) return;
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onClick();
+            }
+          }}
+          role={onClick ? "button" : undefined}
+          tabIndex={onClick ? 0 : undefined}
+          className="relative h-52 w-full shrink-0 cursor-pointer overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-orange"
+        >
+          <ProjectMedia
+            {...mediaHandlers}
+            className="absolute inset-0 h-full"
+            imgClassName="transition-transform duration-500 group-hover:scale-105"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+          <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between gap-2">
+            <span className="font-mono text-[9px] uppercase tracking-widest text-brand-orange">
+              {caseRef}
             </span>
-            <div className="h-px flex-1 bg-white/10" />
+            <Badge className="border-white/20 bg-black/50 text-[9px] backdrop-blur-sm">
+              {project.category}
+            </Badge>
           </div>
-          <h3 className="text-3xl md:text-5xl font-display font-medium leading-tight group-hover:text-brand-orange transition-colors duration-500">
+        </div>
+
+        <div className="flex flex-1 flex-col p-5">
+          <h3 className="font-display text-lg font-medium leading-snug text-white transition-colors group-hover:text-brand-orange md:text-xl">
             {project.title}
           </h3>
-          <p className="text-white/60 text-lg leading-relaxed max-w-xl">
+          <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-white/55">
             {project.description}
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-6 border-y border-white/10">
+          <div className="mt-4 grid grid-cols-2 gap-3 border-t border-white/10 pt-4">
             <div>
-              <h4 className="text-xs uppercase font-mono tracking-widest text-white/40 mb-2">
-                Problématique
-              </h4>
-              <p className="text-sm text-white/80">{project.problem}</p>
+              <p className="mb-1 font-mono text-[9px] uppercase tracking-wider text-brand-orange/90">
+                Problème
+              </p>
+              <p className="line-clamp-3 text-xs leading-relaxed text-white/70">
+                {project.problem}
+              </p>
             </div>
             <div>
-              <h4 className="text-xs uppercase font-mono tracking-widest text-white/40 mb-2">
+              <p className="mb-1 font-mono text-[9px] uppercase tracking-wider text-brand-blue">
                 Solution
-              </h4>
-              <p className="text-sm text-white/80">{project.solution}</p>
+              </p>
+              <p className="line-clamp-3 text-xs leading-relaxed text-white/70">
+                {project.solution}
+              </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            {project.stack.map((tech) => (
-              <Badge key={tech}>{tech}</Badge>
+          {project.results?.trim() ? (
+            <p className="mt-3 line-clamp-2 rounded-lg border border-brand-orange/20 bg-brand-orange/[0.07] px-3 py-2 text-xs text-white/75">
+              {project.results}
+            </p>
+          ) : null}
+
+          <div className="mt-4 flex flex-wrap gap-1.5">
+            {project.stack.slice(0, 5).map((tech) => (
+              <Badge
+                key={tech}
+                className="border-white/10 bg-white/[0.05] px-2 py-0.5 text-[9px]"
+              >
+                {tech}
+              </Badge>
             ))}
+            {project.stack.length > 5 ? (
+              <span className="self-center font-mono text-[9px] text-white/35">
+                +{project.stack.length - 5}
+              </span>
+            ) : null}
           </div>
 
-          <div className="flex items-center gap-6 mt-4">
-            {project.link ? (
-              <motion.a
-                whileHover={{ x: 10 }}
-                href={project.link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 text-white font-medium group/btn"
-              >
-                <span>Voir le projet</span>
-                <div className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center group-hover/btn:bg-brand-orange group-hover/btn:border-brand-orange transition-all duration-300">
-                  <ArrowRight size={18} />
-                </div>
-              </motion.a>
-            ) : (
-              <motion.button
-                whileHover={{ x: 10 }}
-                onClick={onClick}
-                className="flex items-center gap-3 text-white font-medium group/btn"
-              >
-                <span>Détails</span>
-                <div className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center group-hover/btn:bg-brand-orange group-hover/btn:border-brand-orange transition-all duration-300">
-                  <ArrowRight size={18} />
-                </div>
-              </motion.button>
-            )}
-
-            <div className="flex items-center gap-4">
-              {project.githubUrl && (
-                <a
-                  href={project.githubUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:border-white/30 transition-all"
-                  title="GitHub"
-                >
-                  <Github size={18} />
-                </a>
-              )}
-              {project.figmaUrl && (
-                <a
-                  href={project.figmaUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:border-white/30 transition-all"
-                  title="Figma"
-                >
-                  <Figma size={18} />
-                </a>
-              )}
-            </div>
+          <div className="mt-auto pt-2">
+            <ProjectActions project={project} onClick={onClick} compact />
           </div>
         </div>
-      </div>
+      </motion.article>
+    );
+  }
 
+  /* --- layout featured : split desktop --- */
+  return (
+    <motion.article
+      initial={{ opacity: 0, y: 36 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-60px" }}
+      transition={{
+        duration: 0.65,
+        delay: index * 0.06,
+        ease: [0.22, 1, 0.36, 1],
+      }}
+      className="group overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.08] to-white/[0.02] shadow-2xl shadow-black/30 transition-colors duration-500 hover:border-brand-orange/25 lg:grid lg:min-h-[22rem] lg:grid-cols-[1fr_minmax(0,1.15fr)]"
+    >
       <div
         onClick={onClick}
-        className={`order-1 ${index % 2 === 0 ? "lg:order-2" : "lg:order-1"} relative overflow-hidden rounded-2xl aspect-[4/3] lg:aspect-square cursor-pointer`}
+        onKeyDown={(e) => {
+          if (!onClick) return;
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onClick();
+          }
+        }}
+        role={onClick ? "button" : undefined}
+        tabIndex={onClick ? 0 : undefined}
+        className="relative aspect-[4/3] w-full cursor-pointer overflow-hidden lg:aspect-auto lg:min-h-[22rem] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange focus-visible:ring-offset-2 focus-visible:ring-offset-bg-dark"
       >
-        <motion.div
-          whileHover={{ scale: 1.05 }}
-          transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
-          className="w-full h-full"
-        >
-          {imageSrc && !imageFailed ? (
-            <img
-              src={imageSrc}
-              alt={project.title}
-              className="w-full h-full object-cover transition-all duration-700 group-hover:scale-105"
-              onError={() => setImageFailed(true)}
-              referrerPolicy="no-referrer"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-black/20 text-white/40 font-mono text-sm">
-              Image non charger
-            </div>
-          )}
-          <div className="absolute inset-0 bg-black/40 group-hover:bg-black/0 transition-colors duration-700" />
-        </motion.div>
+        <ProjectMedia
+          {...mediaHandlers}
+          className="absolute inset-0 h-full"
+          imgClassName="transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20 lg:bg-gradient-to-r lg:from-transparent lg:via-black/20 lg:to-black/75" />
+        <div className="absolute inset-x-0 bottom-0 p-6 lg:inset-y-0 lg:left-0 lg:flex lg:w-full lg:flex-col lg:justify-end lg:p-8">
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-brand-orange">
+            À la une · {caseRef}
+          </p>
+          <h3 className="mt-2 max-w-md font-display text-2xl font-medium leading-tight text-white lg:text-3xl xl:text-4xl">
+            {project.title}
+          </h3>
+        </div>
+        {onClick && (
+          <span className="pointer-events-none absolute right-4 top-4 rounded-full border border-white/20 bg-black/50 px-2.5 py-1 font-mono text-[8px] uppercase tracking-widest text-white/70 backdrop-blur-sm opacity-0 transition-opacity group-hover:opacity-100">
+            Aperçu
+          </span>
+        )}
       </div>
-    </motion.div>
+
+      <div className="flex flex-col justify-center border-t border-white/10 p-6 md:p-8 lg:border-l lg:border-t-0 lg:p-10">
+        <div className="mb-4 flex flex-wrap items-center gap-3 lg:hidden">
+          <Badge className="border-white/15 bg-white/[0.06]">
+            {project.category}
+          </Badge>
+        </div>
+        <p className="hidden font-mono text-[10px] uppercase tracking-widest text-white/40 lg:mb-2 lg:block">
+          {project.category}
+        </p>
+        <p className="text-base leading-relaxed text-white/65 md:text-lg">
+          {project.description}
+        </p>
+
+        <div className="mt-6 grid gap-3 sm:grid-cols-2 sm:gap-4">
+          <div className="rounded-xl border border-white/10 bg-black/25 p-4">
+            <h4 className="mb-2 font-mono text-[9px] uppercase tracking-[0.15em] text-brand-orange/90">
+              Problématique
+            </h4>
+            <p className="text-sm leading-relaxed text-white/80">
+              {project.problem}
+            </p>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-black/25 p-4">
+            <h4 className="mb-2 font-mono text-[9px] uppercase tracking-[0.15em] text-brand-blue">
+              Solution
+            </h4>
+            <p className="text-sm leading-relaxed text-white/80">
+              {project.solution}
+            </p>
+          </div>
+        </div>
+
+        {project.results?.trim() ? (
+          <div className="mt-4 rounded-xl border border-brand-orange/25 bg-brand-orange/[0.06] p-4">
+            <h4 className="mb-1 font-mono text-[9px] uppercase tracking-[0.15em] text-white/45">
+              Résultats
+            </h4>
+            <p className="text-sm leading-relaxed text-white/85">
+              {project.results}
+            </p>
+          </div>
+        ) : null}
+
+        <div className="mt-6 flex flex-wrap gap-2">
+          {project.stack.map((tech) => (
+            <Badge key={tech} className="border-white/15 bg-white/[0.06]">
+              {tech}
+            </Badge>
+          ))}
+        </div>
+
+        <ProjectActions project={project} onClick={onClick} />
+      </div>
+    </motion.article>
   );
 };
 

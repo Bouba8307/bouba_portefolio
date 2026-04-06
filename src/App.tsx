@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import {
   motion,
@@ -62,6 +62,13 @@ import {
 import { AdminDashboard } from "./components/Admin";
 import { getDirectImageUrl, getDirectDownloadUrl } from "./utils";
 import { handleDatabaseError, OperationType } from "./services/errorHandling";
+
+const getLastYearFromPeriod = (period: string) => {
+  const p = period.toLowerCase();
+  if (p.includes("en cours") || p.includes("présent")) return 9999;
+  const years = period.match(/\d{4}/g);
+  return years ? Math.max(...years.map(Number)) : 0;
+};
 
 const Login = ({
   onLogin,
@@ -136,7 +143,7 @@ const Portfolio = () => {
   const [skills, setSkills] = useState<SkillGroup[]>(SKILLS);
   const [settings, setSettings] = useState<any>({
     name: "BT.",
-    profileImageUrl: "https://picsum.photos/seed/professional-dev/1200/1200",
+    profileImageUrl: "assets/img/bouba.jpeg",
     bio: "",
   });
   const [loading, setLoading] = useState(true);
@@ -175,16 +182,7 @@ const Portfolio = () => {
           const data = await fetchAllRows<Experience>("experiences");
           if (data.length > 0) {
             data.sort((a, b) => {
-              const getYear = (p: string) => {
-                if (
-                  p.toLowerCase().includes("en cours") ||
-                  p.toLowerCase().includes("présent")
-                )
-                  return 9999;
-                const years = p.match(/\d{4}/g);
-                return years ? Math.max(...years.map(Number)) : 0;
-              };
-              return getYear(b.period) - getYear(a.period);
+              return getLastYearFromPeriod(b.period) - getLastYearFromPeriod(a.period);
             });
             setExperiences(data);
           }
@@ -197,16 +195,7 @@ const Portfolio = () => {
           const data = await fetchAllRows<Education>("education");
           if (data.length > 0) {
             data.sort((a, b) => {
-              const getYear = (p: string) => {
-                if (
-                  p.toLowerCase().includes("en cours") ||
-                  p.toLowerCase().includes("présent")
-                )
-                  return 9999;
-                const years = p.match(/\d{4}/g);
-                return years ? Math.max(...years.map(Number)) : 0;
-              };
-              return getYear(b.period) - getYear(a.period);
+              return getLastYearFromPeriod(b.period) - getLastYearFromPeriod(a.period);
             });
             setEducation(data);
           }
@@ -276,23 +265,28 @@ const Portfolio = () => {
         <Section
           id="projets"
           subtitle="Case Studies"
-          title="Projets Sélectionnés."
+          title="Projets réalisés"
         >
-          <div className="space-y-32">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:gap-10">
             {projects.map((project, i) => (
-              <ProjectCard
+              <div
                 key={project.id}
-                project={project}
-                index={i}
-                onClick={() =>
-                  setSelectedItem({
-                    title: project.title,
-                    imageUrl: project.imageUrl,
-                    category: project.category,
-                    description: project.description,
-                  })
-                }
-              />
+                className={i === 0 ? "lg:col-span-2" : undefined}
+              >
+                <ProjectCard
+                  project={project}
+                  index={i}
+                  layout={i === 0 ? "featured" : "tile"}
+                  onClick={() =>
+                    setSelectedItem({
+                      title: project.title,
+                      imageUrl: project.imageUrl,
+                      category: project.category,
+                      description: project.description,
+                    })
+                  }
+                />
+              </div>
             ))}
           </div>
         </Section>
@@ -591,7 +585,7 @@ const Hero = ({ settings }: { settings: any }) => {
           >
             Développeur <span className="text-brand-orange">Full Stack</span>{" "}
             <br className="hidden sm:block" />
-            Web & Mobile <br className="hidden sm:block" />
+            Web & Mobile <span className="text-brand-orange">Junior</span>  <br className="hidden sm:block" />
             <span className="italic font-light text-white/80 text-2xl md:text-5xl">
               & UI/UX Designer
             </span>
@@ -662,7 +656,7 @@ const Hero = ({ settings }: { settings: any }) => {
                     settings.profileImageUrl,
                   );
                   (e.target as HTMLImageElement).src =
-                    "https://picsum.photos/seed/profile/1200/1200";
+                    "assets/img/boubacar.jpg";
                 }}
                 referrerPolicy="no-referrer"
               />
@@ -700,7 +694,7 @@ const Hero = ({ settings }: { settings: any }) => {
         className="absolute bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4"
       >
         <span className="text-[10px] uppercase font-mono tracking-widest text-white/40">
-          Scroll
+          Scrolllll
         </span>
         <motion.div
           animate={{ y: [0, 10, 0] }}
@@ -808,122 +802,86 @@ const About = ({ settings }: { settings: any }) => {
   );
 };
 
-const FloatingSkill: React.FC<{
+const groupCategoryIcon = (i: number) => {
+  if (i === 0) return <Code size={22} />;
+  if (i === 1) return <Palette size={22} />;
+  return <BarChart3 size={22} />;
+};
+
+const SkillTile: React.FC<{
   skill: { name: string; icon?: string };
   index: number;
-}> = ({ skill, index }) => {
-  // Generate random stable offsets for each skill
-  const offsets = useRef({
-    x: Math.random() * 60 - 30,
-    y: Math.random() * 60 - 30,
-    duration: 4 + Math.random() * 4,
-    delay: Math.random() * 2,
-    rotate: Math.random() * 20 - 10,
-  }).current;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.8, filter: "blur(8px)" }}
-      whileInView={{
-        opacity: 1,
-        scale: 1,
-        filter: "blur(3px)",
-        x: offsets.x,
-        y: offsets.y,
-        rotate: offsets.rotate,
-      }}
-      whileHover={{
-        scale: 1.25,
-        filter: "blur(0px)",
-        x: 0,
-        y: 0,
-        rotate: 0,
-        zIndex: 50,
-        transition: {
-          type: "spring",
-          stiffness: 400,
-          damping: 25,
-          filter: { duration: 0.2 },
-        },
-      }}
-      animate={{
-        y: [offsets.y, offsets.y + 15, offsets.y],
-        x: [offsets.x, offsets.x + 10, offsets.x],
-        rotate: [offsets.rotate, offsets.rotate + 5, offsets.rotate],
-      }}
-      transition={{
-        y: { repeat: Infinity, duration: offsets.duration, ease: "easeInOut" },
-        x: {
-          repeat: Infinity,
-          duration: offsets.duration * 1.2,
-          ease: "easeInOut",
-        },
-        rotate: {
-          repeat: Infinity,
-          duration: offsets.duration * 1.5,
-          ease: "easeInOut",
-        },
-      }}
-      viewport={{ once: true }}
-      className="relative group"
-    >
-      <div className="w-16 h-16 md:w-24 md:h-24 rounded-full glass flex items-center justify-center p-4 md:p-5 cursor-pointer hover:border-brand-orange/60 transition-all duration-500 shadow-xl shadow-black/40 group-hover:shadow-brand-orange/20 group-hover:bg-white/10">
-        {skill.icon ? (
-          <img
-            src={getDirectImageUrl(skill.icon)}
-            alt={skill.name}
-            className="w-full h-full object-contain transition-all duration-500 group-hover:drop-shadow-[0_0_8px_rgba(242,125,38,0.5)]"
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = "none";
-            }}
-            referrerPolicy="no-referrer"
-          />
-        ) : (
-          <Zap
-            size={20}
-            className="md:w-7 md:h-7 text-white/40 group-hover:text-brand-orange transition-colors"
-          />
-        )}
-      </div>
-
-      {/* Tooltip */}
-      <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none whitespace-nowrap translate-y-2 group-hover:translate-y-0">
-        <span className="text-[10px] font-mono font-bold uppercase tracking-widest bg-brand-orange text-white px-3 py-1.5 rounded-full shadow-lg">
-          {skill.name}
-        </span>
-      </div>
-    </motion.div>
-  );
-};
+}> = ({ skill, index }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 14 }}
+    whileInView={{ opacity: 1, y: 0 }}
+    viewport={{ once: true, margin: "-40px" }}
+    transition={{ delay: Math.min(index * 0.035, 0.35), duration: 0.4 }}
+    whileHover={{ y: -3 }}
+    className="group flex min-w-0 items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 shadow-sm shadow-black/20 transition-colors duration-300 hover:border-brand-orange/35 hover:bg-white/[0.07]"
+  >
+    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-black/20 p-2 transition-colors duration-300 group-hover:border-brand-orange/30 group-hover:bg-brand-orange/5">
+      {skill.icon ? (
+        <img
+          src={getDirectImageUrl(skill.icon)}
+          alt=""
+          className="h-full w-full object-contain"
+          onError={(e) => {
+            (e.target as HTMLImageElement).style.display = "none";
+          }}
+          referrerPolicy="no-referrer"
+        />
+      ) : (
+        <Zap
+          size={20}
+          className="text-white/35 transition-colors group-hover:text-brand-orange"
+        />
+      )}
+    </div>
+    <span className="min-w-0 truncate text-sm font-medium tracking-tight text-white/90">
+      {skill.name}
+    </span>
+  </motion.div>
+);
 
 const SkillsData = ({ skillsData }: { skillsData: SkillGroup[] }) => {
   return (
     <Section
       id="compétences"
       subtitle="Expertise"
-      title="Compétences & Technologies."
+      title="Compétences & Technologies"
     >
-      <div className="space-y-24">
+      <div className="grid gap-8 md:gap-10">
         {skillsData.map((group, i) => (
-          <div key={group.title} className="space-y-12">
-            <div className="flex items-center gap-6">
-              <div className="w-12 h-12 rounded-full bg-brand-orange/20 flex items-center justify-center text-brand-orange">
-                {i === 0 && <Code size={24} />}
-                {i === 1 && <Palette size={24} />}
-                {i === 2 && <BarChart3 size={24} />}
+          <motion.article
+            key={group.title}
+            initial={{ opacity: 0, y: 28 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-60px" }}
+            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+            className="overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] via-white/[0.02] to-transparent p-6 backdrop-blur-sm md:p-9"
+          >
+            <header className="mb-6 flex flex-wrap items-center gap-4 md:mb-8 md:gap-5">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-brand-orange/25 bg-brand-orange/15 text-brand-orange md:h-14 md:w-14">
+                {groupCategoryIcon(i)}
               </div>
-              <h3 className="text-3xl font-display font-medium">
-                {group.title}
-              </h3>
-              <div className="h-px flex-1 bg-white/10" />
-            </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="font-display text-2xl font-medium tracking-tight text-white md:text-3xl">
+                  {group.title}
+                </h3>
+                <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.2em] text-white/35">
+                  {group.skills.length}{" "}
+                  {group.skills.length > 1 ? "éléments" : "élément"}
+                </p>
+              </div>
+            </header>
 
-            <div className="flex flex-wrap justify-center gap-8 md:gap-12 py-12">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {group.skills.map((skill, idx) => (
-                <FloatingSkill key={skill.name} skill={skill} index={idx} />
+                <SkillTile key={skill.name} skill={skill} index={idx} />
               ))}
             </div>
-          </div>
+          </motion.article>
         ))}
       </div>
     </Section>
