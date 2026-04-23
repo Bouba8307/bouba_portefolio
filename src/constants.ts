@@ -7,7 +7,7 @@ import {
 } from "./types";
 
 export const CV_URL =
-  "https://drive.google.com/file/d/1OeUAoX824Q9pZuxxTlI0u6BpAvO-UAxQ/view?usp=drive_link";
+  "https://drive.google.com/file/d/1U1NqbDuQa56Bcvt4AWAxoiNGoRxLzqi3/view?usp=sharing";
 
 export const EXPERIENCES: Experience[] = [
   {
