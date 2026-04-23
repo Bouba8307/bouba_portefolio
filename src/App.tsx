@@ -583,11 +583,10 @@ const Hero = ({ settings }: { settings: any }) => {
             transition={{ duration: 0.8, delay: 0.2 }}
             className="text-4xl md:text-6xl lg:text-7xl font-display font-bold tracking-tight leading-[1.1] mb-8"
           >
-            Développeur <span className="text-brand-orange">Full Stack</span>{" "}
+            Développeur <span className="text-brand-orange">Web / Mobile</span> & UI/UX Designer{" "}
             <br className="hidden sm:block" />
-            Web & Mobile <span className="text-brand-orange">Junior</span>  <br className="hidden sm:block" />
             <span className="italic font-light text-white/80 text-2xl md:text-5xl">
-              & UI/UX Designer
+              
             </span>
           </motion.h1>
 
@@ -597,10 +596,9 @@ const Hero = ({ settings }: { settings: any }) => {
             transition={{ duration: 0.8, delay: 0.4 }}
             className="text-lg md:text-xl text-white/60 max-w-2xl mx-auto lg:mx-0 mb-12 leading-relaxed"
           >
-            Je conçois des expériences digitales performantes, esthétiques et
-            centrées utilisateur. Graphiste & Créateur de contenu digital
-            passionné par l'innovation.
-          </motion.p>
+            Je recherche un stage de 3 mois, avec une alternance prévue pour la rentrée prochaine, afin 
+            d'appliquer mes compétences techniques au service de projets concrets.
+            </motion.p>
 
           <motion.div
             initial={{ opacity: 0, y: 30 }}
