@@ -62,6 +62,7 @@ import {
 import { AdminDashboard } from "./components/Admin";
 import { getDirectImageUrl, getDirectDownloadUrl } from "./utils";
 import { handleDatabaseError, OperationType } from "./services/errorHandling";
+import { useTypewriter } from "./services/useTypewriter";
 
 const getLastYearFromPeriod = (period: string) => {
   const p = period.toLowerCase();
@@ -581,24 +582,25 @@ const Hero = ({ settings }: { settings: any }) => {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className="text-4xl md:text-6xl lg:text-7xl font-display font-bold tracking-tight leading-[1.1] mb-8"
+            className="text-4xl md:text-5xl lg:text-6xl font-display font-bold tracking-tight leading-[1.1] mb-8"
           >
-            Développeur <span className="text-brand-orange">Web / Mobile</span> & UI/UX Designer{" "}
+            Développeur <span className="text-brand-orange inline-block">Web / Mobile</span> <br /> & UI/UX Designer{" "}
             <br className="hidden sm:block" />
-            <span className="italic font-light text-white/80 text-2xl md:text-5xl">
+            <span className="italic font-light text-white/80 text-4xl md:text-5xl">
               
             </span>
           </motion.h1>
 
           <motion.p
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.4 }}
-            className="text-lg md:text-xl text-white/60 max-w-2xl mx-auto lg:mx-0 mb-12 leading-relaxed"
-          >
-            Je recherche un stage de 3 mois, avec une alternance prévue pour la rentrée prochaine, afin 
-            d'appliquer mes compétences techniques au service de projets concrets.
-            </motion.p>
+  initial={{ opacity: 0 }}
+  animate={{ opacity: 1 }}
+  transition={{ duration: 0.5 }}
+  className="text-lg md:text-xl text-white/60 max-w-2xl mx-auto lg:mx-0 mb-12 leading-relaxed"
+>
+  {useTypewriter(`Je recherche un stage de 3 mois, avec une alternance prévue pour la rentrée prochaine, afin 
+  d'appliquer mes compétences techniques au service de projets concrets.`, 25)}
+  <span className="animate-pulse">|</span>
+</motion.p>
 
           <motion.div
             initial={{ opacity: 0, y: 30 }}
