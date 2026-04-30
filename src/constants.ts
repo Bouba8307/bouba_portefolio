@@ -88,20 +88,6 @@ export const PROJECTS: Project[] = [
     results: "Développé en Juin 2024 @ Orange Digital Kalanso.",
     imageUrl: "",
   },
-  {
-    id: "3",
-    title: "Design UI/UX & Prototypage",
-    category: "UI/UX Design",
-    description:
-      "Création de maquettes interactives et de prototypes fonctionnels pour des plateformes complexes.",
-    problem:
-      "Nécessité d'interfaces intuitives adaptées aux besoins des utilisateurs finaux.",
-    solution:
-      "Conception sous Figma avec focus sur l'ergonomie et le parcours utilisateur.",
-    stack: ["Figma", "Prototypage", "UX Research"],
-    results: "Réalisé en Juin 2024.",
-    imageUrl: "",
-  },
 ];
 
 export const EDUCATION: Education[] = [
