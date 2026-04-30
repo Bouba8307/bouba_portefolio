@@ -385,7 +385,7 @@ const Portfolio = () => {
         <Section
           id="formation"
           subtitle="Parcours"
-          title="Acquis de Formation."
+          title="Parcours"
         >
           <div className="max-w-4xl">
             {education.map((edu, i) => (
@@ -722,27 +722,18 @@ const About = ({ settings }: { settings: any }) => {
           className="space-y-8"
         >
           <p className="text-lg md:text-2xl text-white/80 leading-relaxed font-light">
-            Mon parcours est le reflet d'une curiosité insatiable pour le
-            numérique. Du{" "}
-            <span className="text-white font-medium">
-              DUT Informatique de Gestion
-            </span>{" "}
-            à la
-            <span className="text-white font-medium">
-              {" "}
-              Prépa Master Expert Stratégie Digitale
-            </span>
-            , j'ai forgé une double compétence rare.
-          </p>
+  Passionné par le numérique, j’évolue en permanence avec les nouvelles technologies. Entre veille active sur l’IA et exploration des outils digitaux, j’ai développé une double compétence technique et stratégique. Aujourd’hui, je cherche à rejoindre un projet où je peux créer de l’impact rapidement.
+</p>
           <p className="text-sm md:text-lg text-white/60 leading-relaxed">
             {settings.bio ||
-              "Je ne me contente pas de coder des fonctionnalités ; je structure des écosystèmes, j'optimise des parcours utilisateurs et je conçois des interfaces qui racontent une histoire. Ma vision est simple : allier la puissance de IA et du développement à l'élégance du design pour générer un impact réel."}
+              " Je ne me limite pas au développement de fonctionnalités : je conçois des écosystèmes cohérents, j’optimise les parcours utilisateurs et je crée des interfaces porteuses de sens. Mon objectif est clair : exploiter la puissance de l’intelligence artificielle et du développement pour servir un design pertinent et produire un impact concret"}
+
           </p>
 
           <div className="grid grid-cols-2 gap-4 md:gap-8 pt-4 md:pt-8">
             <div>
               <h4 className="text-2xl md:text-3xl font-display font-bold text-brand-orange mb-1">
-                4+
+                3+
               </h4>
               <p className="text-[10px] md:text-xs uppercase font-mono tracking-widest text-white/40">
                 Années d'études
@@ -775,10 +766,10 @@ const About = ({ settings }: { settings: any }) => {
                 Ma Valeur Ajoutée
               </h3>
               <p className="text-white/60 text-sm md:text-base leading-relaxed">
-                Je comble le fossé entre le design et le développement. En
-                comprenant les deux mondes, je garantis une fidélité parfaite
-                entre le prototype et le produit final, tout en assurant une
-                performance technique irréprochable.
+              Je fais le lien entre le design et le développement en maîtrisant ces deux univers. 
+              Cette double compétence me permet de transformer fidèlement les maquettes en produits 
+              fonctionnels, tout en garantissant des performances techniques solides. Je suis aujourd’hui à la recherche d’une opportunité où je pourrai mettre à profit cette expertise.
+
               </p>
             </div>
 
