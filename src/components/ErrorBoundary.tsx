@@ -38,15 +38,13 @@ export class ErrorBoundary extends React.Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       let errorMessage = "Une erreur inattendue s'est produite.";
-      let isDatabaseError = false;
 
       try {
         if (this.state.error?.message) {
           const parsed = JSON.parse(this.state.error.message);
-          if (parsed.authInfo && parsed.operationType) {
-            isDatabaseError = true;
+          if (parsed?.type === "database" && parsed.operationType) {
             errorMessage = `Erreur de base de données (${parsed.operationType}) sur ${parsed.path || "inconnu"}.`;
-            const err = String(parsed.error).toLowerCase();
+            const err = String(parsed.error ?? "").toLowerCase();
             if (
               err.includes("permission-denied") ||
               err.includes("row-level security") ||
@@ -77,17 +75,6 @@ export class ErrorBoundary extends React.Component<Props, State> {
                 {errorMessage}
               </p>
             </div>
-
-            {isDatabaseError && (
-              <div className="bg-white/5 p-4 rounded-xl text-left">
-                <p className="text-[10px] font-mono uppercase text-white/40 mb-1">
-                  Détails techniques
-                </p>
-                <code className="text-[10px] text-brand-orange break-all">
-                  {this.state.error?.message}
-                </code>
-              </div>
-            )}
 
             <div className="flex flex-col gap-3 pt-4">
               <Button

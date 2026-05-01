@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import React, { useState, useEffect, Suspense } from "react";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import {
   motion,
   AnimatePresence,
@@ -40,11 +40,11 @@ import {
 } from "./constants";
 import { Section, Button, Badge, Modal } from "./components/UI";
 import {
-  ProjectCard,
   TimelineItem,
   ExperienceItem,
   ContentCard,
 } from "./components/Cards";
+import { ProjectTimelineCase } from "./components/ProjectTimelineCase";
 import type { User as AuthUser } from "@supabase/supabase-js";
 import { supabase, isSupabaseConfigured } from "./services/supabase";
 import {
@@ -59,10 +59,13 @@ import {
   Education,
   SkillGroup,
 } from "./types";
-import { AdminDashboard } from "./components/Admin";
+const AdminDashboard = React.lazy(() =>
+  import("./components/Admin").then((m) => ({ default: m.AdminDashboard })),
+);
 import { getDirectImageUrl, getDirectDownloadUrl } from "./utils";
 import { handleDatabaseError, OperationType } from "./services/errorHandling";
 import { useTypewriter } from "./services/useTypewriter";
+import { applySeo } from "./services/seo";
 
 const getLastYearFromPeriod = (period: string) => {
   const p = period.toLowerCase();
@@ -101,28 +104,38 @@ const Login = ({
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <label className="text-xs uppercase font-mono tracking-widest text-white/40 ml-1">
+            <label
+              htmlFor="admin-email"
+              className="text-xs uppercase font-mono tracking-widest text-white/40 ml-1"
+            >
               Email
             </label>
             <input
+              id="admin-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="admin@example.com"
               required
+              autoComplete="email"
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-brand-orange transition-colors"
             />
           </div>
           <div className="space-y-2">
-            <label className="text-xs uppercase font-mono tracking-widest text-white/40 ml-1">
+            <label
+              htmlFor="admin-password"
+              className="text-xs uppercase font-mono tracking-widest text-white/40 ml-1"
+            >
               Mot de passe
             </label>
             <input
+              id="admin-password"
               type="password"
               value={pass}
               onChange={(e) => setPass(e.target.value)}
               placeholder="••••••••"
               required
+              autoComplete="current-password"
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-brand-orange transition-colors"
             />
           </div>
@@ -268,26 +281,21 @@ const Portfolio = () => {
           subtitle="Case Studies"
           title="Projets réalisés"
         >
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:gap-10">
+          <div className="mx-auto max-w-6xl space-y-10 md:space-y-12">
             {projects.map((project, i) => (
-              <div
+              <ProjectTimelineCase
                 key={project.id}
-                className={i === 0 ? "lg:col-span-2" : undefined}
-              >
-                <ProjectCard
-                  project={project}
-                  index={i}
-                  layout={i === 0 ? "featured" : "tile"}
-                  onClick={() =>
-                    setSelectedItem({
-                      title: project.title,
-                      imageUrl: project.imageUrl,
-                      category: project.category,
-                      description: project.description,
-                    })
-                  }
-                />
-              </div>
+                project={project}
+                index={i}
+                onOpen={() =>
+                  setSelectedItem({
+                    title: project.title,
+                    imageUrl: project.imageUrl,
+                    category: project.category,
+                    description: project.description,
+                  })
+                }
+              />
             ))}
           </div>
         </Section>
@@ -332,13 +340,15 @@ const Portfolio = () => {
                         alt={selectedItem.title}
                         className="w-full h-full object-contain p-4"
                         referrerPolicy="no-referrer"
+                        loading="lazy"
+                        decoding="async"
                       />
                     );
                   }
 
                   return (
                     <div className="w-full h-full flex items-center justify-center text-white/40 font-mono text-sm">
-                      Image non charger
+                      Image non chargée
                     </div>
                   );
                 })()}
@@ -370,8 +380,8 @@ const Portfolio = () => {
 
         <Section
           id="expériences"
-          subtitle="Expériences"
-          title="Acquis de l'Expérience."
+          subtitle="Professionnelles"
+          title="Expériences "
         >
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {experiences.map((exp, i) => (
@@ -406,6 +416,8 @@ const Portfolio = () => {
 
 const Navbar = ({ settings }: { settings: any }) => {
   const [isScrolled, setIsScrolled] = useState(false);
+  const logoSrc = getDirectImageUrl(settings.faviconUrl || "");
+  const profileSrc = getDirectImageUrl(settings.profileImageUrl || "");
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 50);
@@ -436,17 +448,38 @@ const Navbar = ({ settings }: { settings: any }) => {
         <div className="max-w-7xl mx-auto px-6 md:px-12 flex items-center justify-between">
           <motion.div
             whileHover={{ scale: 1.05 }}
-            className="text-2xl font-display font-bold tracking-tighter cursor-pointer"
+            className="cursor-pointer"
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
           >
-            {settings.name.includes(".") ? (
-              <>
-                {settings.name.split(".")[0]}
-                <span className="text-brand-orange">.</span>
-              </>
-            ) : (
-              settings.name
-            )}
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 rounded-2xl overflow-hidden border border-white/10 bg-white/5">
+                {logoSrc ? (
+                  <img
+                    src={logoSrc}
+                    alt={settings.name || "Logo"}
+                    className="h-full w-full object-contain p-2"
+                    onError={(e) => {
+                      if (profileSrc) (e.target as HTMLImageElement).src = profileSrc;
+                    }}
+                    referrerPolicy="no-referrer"
+                    loading="eager"
+                    decoding="async"
+                  />
+                ) : profileSrc ? (
+                  <img
+                    src={profileSrc}
+                    alt={settings.name || "Logo"}
+                    className="h-full w-full object-cover"
+                    referrerPolicy="no-referrer"
+                    loading="eager"
+                    decoding="async"
+                  />
+                ) : (
+                  <div className="h-full w-full" />
+                )}
+              </div>
+              <span className="sr-only">{settings.name}</span>
+            </div>
           </motion.div>
 
           <div className="flex items-center gap-12">
@@ -484,33 +517,30 @@ const Navbar = ({ settings }: { settings: any }) => {
       >
         <div className="px-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-brand-orange/30">
-              <img
-                src={getDirectImageUrl(
-                  settings.profileImageUrl ||
-                    "https://picsum.photos/seed/professional-dev/200/200",
-                )}
-                alt={settings.name}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  console.error(
-                    "Mobile profile image load error:",
-                    settings.profileImageUrl,
-                  );
-                  (e.target as HTMLImageElement).src =
-                    "https://picsum.photos/seed/profile/200/200";
-                }}
-                referrerPolicy="no-referrer"
-              />
-            </div>
-            <div className="text-lg font-display font-bold tracking-tighter">
-              {settings.name.includes(".") ? (
-                <>
-                  {settings.name.split(".")[0]}
-                  <span className="text-brand-orange">.</span>
-                </>
+            <div className="h-11 w-11 rounded-2xl overflow-hidden border border-white/10 bg-white/5">
+              {logoSrc ? (
+                <img
+                  src={logoSrc}
+                  alt={settings.name || "Logo"}
+                  className="h-full w-full object-contain p-2"
+                  onError={(e) => {
+                    if (profileSrc) (e.target as HTMLImageElement).src = profileSrc;
+                  }}
+                  referrerPolicy="no-referrer"
+                  loading="eager"
+                  decoding="async"
+                />
+              ) : profileSrc ? (
+                <img
+                  src={profileSrc}
+                  alt={settings.name || "Logo"}
+                  className="h-full w-full object-cover"
+                  referrerPolicy="no-referrer"
+                  loading="eager"
+                  decoding="async"
+                />
               ) : (
-                settings.name
+                <div className="h-full w-full" />
               )}
             </div>
           </div>
@@ -573,9 +603,44 @@ const Hero = ({ settings }: { settings: any }) => {
             transition={{ duration: 0.8 }}
             className="mb-6"
           >
-            <Badge className="bg-brand-orange/10 text-brand-orange border-brand-orange/20">
-              Disponible pour de nouveaux défis
-            </Badge>
+            <span className="relative inline-flex">
+              <motion.svg
+                aria-hidden="true"
+                className="pointer-events-none absolute -inset-[6px] z-0 h-[calc(100%+12px)] w-[calc(100%+12px)]"
+                viewBox="0 0 100 40"
+                preserveAspectRatio="none"
+              >
+                <defs>
+                  <linearGradient id="heroBadgeTrace" x1="0" y1="0" x2="100" y2="0" gradientUnits="userSpaceOnUse">
+                    <stop stopColor="rgba(242,125,38,0)" />
+                    <stop offset="0.25" stopColor="rgba(242,125,38,0.95)" />
+                    <stop offset="0.55" stopColor="rgba(255, 255, 255, 0.75)" />
+                    <stop offset="0.85" stopColor="rgba(242,125,38,0.95)" />
+                    <stop offset="1" stopColor="rgba(242,125,38,0)" />
+                  </linearGradient>
+                </defs>
+                <motion.rect
+                  x="2"
+                  y="2"
+                  width="96"
+                  height="36"
+                  rx="18"
+                  fill="transparent"
+                  stroke="url(#heroBadgeTrace)"
+                  strokeWidth="1"
+                  strokeLinecap="round"
+                  strokeDasharray="22 220"
+                  initial={{ strokeDashoffset: 0, opacity: 0.85 }}
+                  animate={{ strokeDashoffset: -242 }}
+                  transition={{ duration: 2.8, ease: "linear", repeat: Infinity }}
+                  style={{ filter: "drop-shadow(0 0 10px rgba(242,125,38,0.35))" }}
+                />
+              </motion.svg>
+
+              <Badge className="relative z-10 bg-brand-orange text-white border-brand-orange/40 shadow-lg shadow-brand-orange/20 px-5 py-2 text-sm md:text-base font-semibold">
+                Boubacar Traoré
+              </Badge>
+            </span>
           </motion.div>
 
           <motion.h1
@@ -586,9 +651,6 @@ const Hero = ({ settings }: { settings: any }) => {
           >
             Développeur <span className="text-brand-orange inline-block">Web / Mobile</span> <br /> & UI/UX Designer{" "}
             <br className="hidden sm:block" />
-            <span className="italic font-light text-white/80 text-4xl md:text-5xl">
-              
-            </span>
           </motion.h1>
 
           <motion.p
@@ -659,30 +721,13 @@ const Hero = ({ settings }: { settings: any }) => {
                     "assets/img/boubacar.jpg";
                 }}
                 referrerPolicy="no-referrer"
+                loading="eager"
+                fetchPriority="high"
+                decoding="async"
               />
             </div>
 
             {/* Floating Badges */}
-            <motion.div
-              animate={{ y: [0, -10, 0] }}
-              transition={{ repeat: Infinity, duration: 3 }}
-              className="absolute -top-4 -right-4 glass px-4 py-2 rounded-xl flex items-center gap-2"
-            >
-              <Zap size={16} className="text-brand-orange" />
-              <span className="text-[10px] font-mono font-bold uppercase tracking-widest">
-                Full Stack
-              </span>
-            </motion.div>
-            <motion.div
-              animate={{ y: [0, 10, 0] }}
-              transition={{ repeat: Infinity, duration: 4, delay: 0.5 }}
-              className="absolute -bottom-4 -left-4 glass px-4 py-2 rounded-xl flex items-center gap-2"
-            >
-              <Palette size={16} className="text-brand-blue" />
-              <span className="text-[10px] font-mono font-bold uppercase tracking-widest">
-                UI/UX
-              </span>
-            </motion.div>
           </div>
         </motion.div>
       </div>
@@ -693,14 +738,20 @@ const Hero = ({ settings }: { settings: any }) => {
         transition={{ delay: 1.2, duration: 1 }}
         className="absolute bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4"
       >
-        <span className="text-[10px] uppercase font-mono tracking-widest text-white/40">
-          Scrolllll
-        </span>
-        <motion.div
-          animate={{ y: [0, 10, 0] }}
-          transition={{ repeat: Infinity, duration: 2 }}
-          className="w-px h-12 bg-gradient-to-b from-brand-orange to-transparent"
-        />
+        <button
+          type="button"
+          onClick={() =>
+            document.getElementById("projets")?.scrollIntoView({ behavior: "smooth" })
+          }
+          className="group flex flex-col items-center gap-4 focus:outline-none"
+          aria-label="Aller à la section projets"
+        >
+          <motion.div
+            animate={{ y: [0, 10, 0] }}
+            transition={{ repeat: Infinity, duration: 2 }}
+            className="w-px h-12 bg-gradient-to-b from-brand-orange to-transparent"
+          />
+        </button>
       </motion.div>
     </section>
   );
@@ -710,7 +761,7 @@ const About = ({ settings }: { settings: any }) => {
   return (
     <Section
       id="à-propos"
-      subtitle="Storytelling"
+      subtitle="A propos de moi"
       title="Un profil hybride, une vision stratégique."
     >
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
@@ -757,7 +808,7 @@ const About = ({ settings }: { settings: any }) => {
           transition={{ duration: 0.8 }}
           className="relative"
         >
-          <div className="aspect-[4/5] rounded-2xl overflow-hidden glass p-8 flex flex-col justify-between">
+          <div className="rounded-2xl overflow-hidden glass p-6 md:p-8 flex flex-col gap-6 md:gap-8">
             <div className="space-y-4 md:space-y-6">
               <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-brand-orange/20 flex items-center justify-center text-brand-orange">
                 <Zap size={20} className="md:w-6 md:h-6" />
@@ -821,6 +872,8 @@ const SkillTile: React.FC<{
             (e.target as HTMLImageElement).style.display = "none";
           }}
           referrerPolicy="no-referrer"
+          loading="lazy"
+          decoding="async"
         />
       ) : (
         <Zap
@@ -884,6 +937,7 @@ const Contact = () => {
     name: "",
     email: "",
     message: "",
+    website: "", // honeypot (doit rester vide)
   });
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -892,19 +946,46 @@ const Contact = () => {
     e.preventDefault();
     setLoading(true);
     const path = "messages";
+
+    // Anti-spam basique: honeypot + throttle léger côté client
+    if (formData.website.trim().length > 0) {
+      setLoading(false);
+      return;
+    }
+    const now = Date.now();
+    const lastSubmit = Number(localStorage.getItem("contact_last_submit_ts") || "0");
+    if (now - lastSubmit < 30_000) {
+      setLoading(false);
+      alert("Merci. Veuillez patienter quelques secondes avant de renvoyer un message.");
+      return;
+    }
+
     if (!isSupabaseConfigured) {
       setLoading(false);
       alert("Supabase n’est pas configuré : impossible d’envoyer le message.");
       return;
     }
+
+    const payload = {
+      name: formData.name.trim().slice(0, 80),
+      email: formData.email.trim().slice(0, 120),
+      message: formData.message.trim().slice(0, 2000),
+    };
+    if (!payload.name || !payload.email || !payload.message) {
+      setLoading(false);
+      alert("Merci de compléter tous les champs.");
+      return;
+    }
+
     try {
       await insertRow("messages", {
-        ...formData,
+        ...payload,
         createdAt: new Date().toISOString(),
         read: false,
       });
+      localStorage.setItem("contact_last_submit_ts", String(Date.now()));
       setSuccess(true);
-      setFormData({ name: "", email: "", message: "" });
+      setFormData({ name: "", email: "", message: "", website: "" });
       setTimeout(() => setSuccess(false), 5000);
     } catch (error) {
       await handleDatabaseError(error, OperationType.CREATE, path);
@@ -949,6 +1030,7 @@ const Contact = () => {
                 <motion.a
                   key={social.label}
                   href={social.href}
+                  aria-label={social.label}
                   whileHover={{
                     y: -5,
                     backgroundColor: "rgba(242, 125, 38, 0.2)",
@@ -964,49 +1046,77 @@ const Contact = () => {
 
         <div className="glass p-8 md:p-12 rounded-3xl">
           <form className="space-y-6" onSubmit={handleSubmit}>
+            <div className="hidden" aria-hidden="true">
+              <label htmlFor="contact-website">Website</label>
+              <input
+                id="contact-website"
+                type="text"
+                tabIndex={-1}
+                autoComplete="off"
+                value={formData.website}
+                onChange={(e) =>
+                  setFormData({ ...formData, website: e.target.value })
+                }
+              />
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-xs uppercase font-mono tracking-widest text-white/40 ml-1">
+                <label
+                  htmlFor="contact-name"
+                  className="text-xs uppercase font-mono tracking-widest text-white/40 ml-1"
+                >
                   Nom
                 </label>
                 <input
+                  id="contact-name"
                   type="text"
                   required
                   value={formData.name}
                   onChange={(e) =>
                     setFormData({ ...formData, name: e.target.value })
                   }
+                  autoComplete="name"
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 focus:outline-none focus:border-brand-orange transition-colors"
                   placeholder="Votre nom"
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-xs uppercase font-mono tracking-widest text-white/40 ml-1">
+                <label
+                  htmlFor="contact-email"
+                  className="text-xs uppercase font-mono tracking-widest text-white/40 ml-1"
+                >
                   Email
                 </label>
                 <input
+                  id="contact-email"
                   type="email"
                   required
                   value={formData.email}
                   onChange={(e) =>
                     setFormData({ ...formData, email: e.target.value })
                   }
+                  autoComplete="email"
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 focus:outline-none focus:border-brand-orange transition-colors"
                   placeholder="exemple@example.com"
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-xs uppercase font-mono tracking-widest text-white/40 ml-1">
+              <label
+                htmlFor="contact-message"
+                className="text-xs uppercase font-mono tracking-widest text-white/40 ml-1"
+              >
                 Message
               </label>
               <textarea
+                id="contact-message"
                 rows={4}
                 required
                 value={formData.message}
                 onChange={(e) =>
                   setFormData({ ...formData, message: e.target.value })
                 }
+                autoComplete="off"
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 focus:outline-none focus:border-brand-orange transition-colors resize-none"
                 placeholder="Votre message..."
               />
@@ -1150,20 +1260,71 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Portfolio />} />
-        <Route
-          path="/admin"
-          element={
-            user ? (
-              <AdminDashboard onLogout={handleLogout} />
-            ) : (
-              <Login onLogin={handleLogin} />
-            )
-          }
-        />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <SeoManager />
+      <Suspense
+        fallback={
+          <div className="min-h-screen bg-black flex items-center justify-center">
+            <div className="w-12 h-12 border-4 border-brand-orange border-t-transparent rounded-full animate-spin" />
+          </div>
+        }
+      >
+        <Routes>
+          <Route path="/" element={<Portfolio />} />
+          <Route
+            path="/admin"
+            element={
+              user ? (
+                <AdminDashboard onLogout={handleLogout} />
+              ) : (
+                <Login onLogin={handleLogin} />
+              )
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }
+
+const SeoManager = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    const baseTitle = "Bouba Traoré — Développeur Full Stack & UI/UX";
+    const baseDescription =
+      "Portfolio de Bouba Traoré : projets web & mobile, UI/UX, expériences et contact.";
+    const ogImage = "/og.svg";
+
+    if (location.pathname.startsWith("/admin")) {
+      applySeo({
+        title: `Admin — ${baseTitle}`,
+        description: baseDescription,
+        canonicalPath: "/admin",
+        robots: "noindex, nofollow",
+        ogType: "website",
+        ogImage,
+        jsonLd: null,
+      });
+      return;
+    }
+
+    applySeo({
+      title: baseTitle,
+      description: baseDescription,
+      canonicalPath: "/",
+      robots: "index, follow",
+      ogType: "website",
+      ogImage,
+      jsonLd: {
+        "@context": "https://schema.org",
+        "@type": "Person",
+        name: "Bouba Traoré",
+        jobTitle: "Développeur Full Stack & UI/UX",
+        url: (import.meta.env.VITE_SITE_URL as string | undefined) || window.location.origin,
+      },
+    });
+  }, [location.pathname]);
+
+  return null;
+};

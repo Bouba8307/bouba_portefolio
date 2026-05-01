@@ -562,6 +562,8 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                               alt="Preview"
                               className="w-full h-full object-cover"
                               referrerPolicy="no-referrer"
+                              loading="lazy"
+                              decoding="async"
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-white/20">
@@ -621,6 +623,8 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                             alt="Favicon"
                             className="w-8 h-8 object-contain"
                             referrerPolicy="no-referrer"
+                            loading="lazy"
+                            decoding="async"
                           />
                         ) : (
                           <ImageIcon size={20} className="text-white/20" />
@@ -975,6 +979,8 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                                   "https://picsum.photos/seed/error/1200/1600";
                               }}
                               referrerPolicy="no-referrer"
+                              loading="lazy"
+                              decoding="async"
                             />
                           </div>
                         )}

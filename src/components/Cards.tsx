@@ -42,6 +42,8 @@ export const ContentCard: React.FC<{
           className="w-full h-full object-cover transition-all duration-700 group-hover:scale-110"
           onError={() => setImageFailed(true)}
           referrerPolicy="no-referrer"
+          loading="lazy"
+          decoding="async"
         />
       ) : (
         <div className="w-full h-full flex items-center justify-center bg-black/20 text-white/40 font-mono text-sm">
@@ -99,6 +101,8 @@ const ProjectMedia: React.FC<{
         className={`h-full w-full object-cover ${imgClassName}`}
         onError={onImageError}
         referrerPolicy="no-referrer"
+        loading="lazy"
+        decoding="async"
       />
     ) : (
       <div className="flex h-full min-h-[12rem] w-full items-center justify-center font-mono text-sm text-white/40">
@@ -225,19 +229,26 @@ export const ProjectCard: React.FC<{
             className="absolute inset-0 h-full"
             imgClassName="transition-transform duration-500 group-hover:scale-105"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-          <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between gap-2">
-            <span className="font-mono text-[9px] uppercase tracking-widest text-brand-orange">
-              {caseRef}
-            </span>
-            <Badge className="border-white/20 bg-black/50 text-[9px] backdrop-blur-sm">
-              {project.category}
-            </Badge>
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 p-4">
+            <div className="flex items-end justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-brand-orange drop-shadow">
+                  {caseRef}
+                </p>
+                <h3 className="mt-2 font-display text-lg font-semibold leading-snug text-white drop-shadow-[0_10px_30px_rgba(0,0,0,0.85)] line-clamp-2 md:hidden">
+                  {project.title}
+                </h3>
+              </div>
+              <Badge className="shrink-0 border-white/20 bg-black/55 text-[9px] backdrop-blur-sm">
+                {project.category}
+              </Badge>
+            </div>
           </div>
         </div>
 
         <div className="flex flex-1 flex-col p-5">
-          <h3 className="font-display text-lg font-medium leading-snug text-white transition-colors group-hover:text-brand-orange md:text-xl">
+          <h3 className="hidden font-display text-lg font-semibold leading-snug text-white transition-colors group-hover:text-brand-orange md:block md:text-xl">
             {project.title}
           </h3>
           <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-white/55">
@@ -324,12 +335,12 @@ export const ProjectCard: React.FC<{
           className="absolute inset-0 h-full"
           imgClassName="transition-transform duration-700 ease-out group-hover:scale-[1.03]"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20 lg:bg-gradient-to-r lg:from-transparent lg:via-black/20 lg:to-black/75" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-black/10 lg:bg-gradient-to-r lg:from-transparent lg:via-black/25 lg:to-black/80" />
         <div className="absolute inset-x-0 bottom-0 p-6 lg:inset-y-0 lg:left-0 lg:flex lg:w-full lg:flex-col lg:justify-end lg:p-8">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-brand-orange">
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-brand-orange drop-shadow">
             À la une · {caseRef}
           </p>
-          <h3 className="mt-2 max-w-md font-display text-2xl font-medium leading-tight text-white lg:text-3xl xl:text-4xl">
+          <h3 className="mt-2 max-w-md font-display text-2xl font-semibold leading-[1.05] text-white drop-shadow-[0_12px_40px_rgba(0,0,0,0.85)] lg:text-3xl xl:text-4xl">
             {project.title}
           </h3>
         </div>
