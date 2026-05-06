@@ -36,6 +36,45 @@ export const getDirectImageUrl = (url: string | undefined): string => {
   return url;
 };
 
+export const normalizeStringArray = (
+  value: unknown,
+  opts?: { splitOn?: RegExp; maxItems?: number },
+): string[] => {
+  const splitOn = opts?.splitOn ?? /[,\n]/g;
+  const maxItems = opts?.maxItems ?? 200;
+
+  if (Array.isArray(value)) {
+    return value
+      .flatMap((v) => (typeof v === "string" ? [v] : []))
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, maxItems);
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+
+    // Support JSON stringified arrays: '["React","Supabase"]'
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) return normalizeStringArray(parsed, opts);
+      } catch {
+        // fallback to split
+      }
+    }
+
+    return trimmed
+      .split(splitOn)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, maxItems);
+  }
+
+  return [];
+};
+
 /**
  * Converts a Google Drive share link to a direct download link.
  * @param url The Google Drive URL

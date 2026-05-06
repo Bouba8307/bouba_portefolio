@@ -62,7 +62,7 @@ import {
 const AdminDashboard = React.lazy(() =>
   import("./components/Admin").then((m) => ({ default: m.AdminDashboard })),
 );
-import { getDirectImageUrl, getDirectDownloadUrl } from "./utils";
+import { getDirectImageUrl, getDirectDownloadUrl, normalizeStringArray } from "./utils";
 import { handleDatabaseError, OperationType } from "./services/errorHandling";
 import { useTypewriter } from "./services/useTypewriter";
 import { applySeo } from "./services/seo";
@@ -157,7 +157,7 @@ const Portfolio = () => {
   const [skills, setSkills] = useState<SkillGroup[]>(SKILLS);
   const [settings, setSettings] = useState<any>({
     name: "BT.",
-    profileImageUrl: "assets/img/bouba.jpeg",
+    profileImageUrl: "/assets/img/bouba.jpeg",
     bio: "",
   });
   const [loading, setLoading] = useState(true);
@@ -178,7 +178,13 @@ const Portfolio = () => {
         const projectsPath = "projects";
         try {
           const rows = await fetchAllRows<Project>("projects");
-          if (rows.length > 0) setProjects(rows);
+          if (rows.length > 0)
+            setProjects(
+              rows.map((p: any) => ({
+                ...p,
+                stack: normalizeStringArray(p?.stack),
+              })),
+            );
         } catch (error) {
           await handleDatabaseError(error, OperationType.GET, projectsPath);
         }
@@ -619,7 +625,7 @@ const Hero = ({ settings }: { settings: any }) => {
                     <stop offset="1" stopColor="rgba(242,125,38,0)" />
                   </linearGradient>
                 </defs>
-                <motion.rect
+                {/* <motion.rect
                   x="2"
                   y="2"
                   width="96"
@@ -634,10 +640,10 @@ const Hero = ({ settings }: { settings: any }) => {
                   animate={{ strokeDashoffset: -242 }}
                   transition={{ duration: 2.8, ease: "linear", repeat: Infinity }}
                   style={{ filter: "drop-shadow(0 0 10px rgba(242,125,38,0.35))" }}
-                />
+                /> */}
               </motion.svg>
 
-              <Badge className="relative z-10 bg-brand-orange text-white border-brand-orange/40 shadow-lg shadow-brand-orange/20 px-5 py-2 text-sm md:text-base font-semibold">
+              <Badge /*className="relative z-01 bg-brand-blue text-white border-brand-blue/40 shadow-lg shadow-brand-orange/20 px-5 py-2 text-sm xl:text-base font-semibold"*/ className="bg-brand-blue text-white border-brand-blue/40 shadow-lg shadow-brand-orange/20 px-5 py-2 text-sm xl:text-base font-semibold">
                 Boubacar Traoré
               </Badge>
             </span>
@@ -713,12 +719,14 @@ const Hero = ({ settings }: { settings: any }) => {
                 alt={settings.name}
                 className="w-full h-full object-cover transition-all duration-700 hover:scale-110"
                 onError={(e) => {
-                  console.error(
-                    "Profile image load error:",
-                    settings.profileImageUrl,
-                  );
-                  (e.target as HTMLImageElement).src =
-                    "assets/img/boubacar.jpg";
+                  const img = e.target as HTMLImageElement;
+                  const fallback = "/assets/img/boubacar.jpg";
+                  if (import.meta.env.DEV) {
+                    console.warn("Profile image load error:", img.src);
+                  }
+                  // Prevent infinite onError loop
+                  if (img.src.endsWith(fallback)) return;
+                  img.src = fallback;
                 }}
                 referrerPolicy="no-referrer"
                 loading="eager"
@@ -732,11 +740,10 @@ const Hero = ({ settings }: { settings: any }) => {
         </motion.div>
       </div>
 
-      <motion.div
+      {/* <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 1.2, duration: 1 }}
-        className="absolute bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4"
+       
       >
         <button
           type="button"
@@ -752,7 +759,7 @@ const Hero = ({ settings }: { settings: any }) => {
             className="w-px h-12 bg-gradient-to-b from-brand-orange to-transparent"
           />
         </button>
-      </motion.div>
+      </motion.div> */}
     </section>
   );
 };

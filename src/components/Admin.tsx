@@ -23,7 +23,7 @@ import {
   SKILLS,
 } from "../constants";
 import { Section, Button, Toast } from "./UI";
-import { getDirectImageUrl } from "../utils";
+import { getDirectImageUrl, normalizeStringArray } from "../utils";
 import {
   Plus,
   Trash2,
@@ -104,7 +104,13 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
     try {
       const pPath = "projects";
       try {
-        setProjects(await fetchAllRows<Project>("projects"));
+        const raw = await fetchAllRows<Project>("projects");
+        setProjects(
+          raw.map((p: any) => ({
+            ...p,
+            stack: normalizeStringArray(p?.stack),
+          })),
+        );
       } catch (error) {
         await handleDatabaseError(error, OperationType.GET, pPath);
       }
@@ -1042,7 +1048,7 @@ export const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                         </label>
                         <input
                           name="stack"
-                          defaultValue={editingItem.stack?.join(", ")}
+                        defaultValue={normalizeStringArray(editingItem.stack).join(", ")}
                           className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-brand-orange outline-none transition-colors"
                         />
                       </div>

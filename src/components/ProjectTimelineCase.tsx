@@ -3,7 +3,7 @@ import { motion } from "motion/react";
 import { ArrowUpRight, ExternalLink, Github, Figma } from "lucide-react";
 import type { Project } from "../types";
 import { Badge } from "./UI";
-import { getDirectImageUrl } from "../utils";
+import { getDirectImageUrl, normalizeStringArray } from "../utils";
 
 const isFictifImage = (src: string) =>
   src.includes("picsum.photos") || src.includes("giphy.com");
@@ -32,6 +32,7 @@ export function ProjectTimelineCase({
   const caseRef = String(index + 1).padStart(2, "0");
   const [imageFailed, setImageFailed] = useState(false);
   const imageSrc = useMemo(() => projectImageSrc(project.imageUrl), [project.imageUrl]);
+  const safeStack = useMemo(() => normalizeStringArray((project as any)?.stack), [project]);
 
   useEffect(() => setImageFailed(false), [project.imageUrl]);
 
@@ -165,14 +166,14 @@ export function ProjectTimelineCase({
           </div>
 
           <div className="mt-5 flex flex-wrap gap-2">
-            {project.stack.slice(0, 6).map((t) => (
+            {safeStack.slice(0, 6).map((t) => (
               <Badge key={t} className="border-white/10 bg-white/[0.05] text-white/80">
                 {t}
               </Badge>
             ))}
-            {project.stack.length > 6 ? (
+            {safeStack.length > 6 ? (
               <span className="self-center font-mono text-[10px] text-white/40">
-                +{project.stack.length - 6}
+                +{safeStack.length - 6}
               </span>
             ) : null}
           </div>
