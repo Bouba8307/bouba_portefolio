@@ -1030,9 +1030,9 @@ const Contact = () => {
 
             <div className="flex gap-4">
               {[
-                { icon: <Linkedin size={24} />, label: "LinkedIn", href: "#" },
-                { icon: <Github size={24} />, label: "GitHub", href: "#" },
-                { icon: <Globe size={24} />, label: "Portfolio", href: "#" },
+                { icon: <Linkedin size={24} />, label: "LinkedIn", href: "www.linkedin.com/in/boubacartraoree" },
+                { icon: <Github size={24} />, label: "GitHub", href: "https://github.com/Bouba8307" },
+                { icon: <Globe size={24} />, label: "Portfolio", href: "https://bouba-portefolio.vercel" },
               ].map((social) => (
                 <motion.a
                   key={social.label}
